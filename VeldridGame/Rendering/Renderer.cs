@@ -57,8 +57,7 @@ void main()
     
     private readonly GraphicsDevice _graphicsDevice;
     private readonly Sdl2Window _window;
-    private readonly DeviceBuffer _vertexBuffer;
-    private readonly DeviceBuffer _indexBuffer;
+    private readonly VertexArrayObject _vao;
     private readonly Shader[] _shaders;
     private readonly CommandList _commandList;
     private readonly Pipeline _pipeline;
@@ -106,11 +105,7 @@ void main()
         _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
 
-        _vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(VertexPositionTexture.SizeInBytes * _vertices.Length), BufferUsage.VertexBuffer));
-        _graphicsDevice.UpdateBuffer(_vertexBuffer, 0, _vertices);
-
-        _indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(ushort) * (uint)_indices.Length, BufferUsage.IndexBuffer));
-        _graphicsDevice.UpdateBuffer(_indexBuffer, 0, _indices);
+        _vao = new VertexArrayObject(_graphicsDevice, _vertices, _indices);
 
         var image = new ImageSharpTexture("Assets/Textures/spnza_bricks_a_diff.png");
         _surfaceTexture = image.CreateDeviceTexture(_graphicsDevice, factory);
@@ -185,8 +180,7 @@ void main()
         _commandList.ClearColorTarget(0, RgbaFloat.Black);
         _commandList.ClearDepthStencil(1f);
         _commandList.SetPipeline(_pipeline);
-        _commandList.SetVertexBuffer(0, _vertexBuffer);
-        _commandList.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
+        _vao.SetActive(_commandList);
         _commandList.SetGraphicsResourceSet(0, _projViewSet);
         _commandList.SetGraphicsResourceSet(1, _worldTextureSet);
         _commandList.DrawIndexed(36, 1, 0, 0, 0);
@@ -202,8 +196,7 @@ void main()
     {
         _commandList.Dispose();
         
-        _indexBuffer.Dispose();
-        _vertexBuffer.Dispose();
+        _vao.Dispose();
         _projectionBuffer.Dispose();
         _viewBuffer.Dispose();
         _worldBuffer.Dispose();
