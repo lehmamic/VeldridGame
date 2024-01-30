@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace VeldridGame.Rendering;
 
-public struct VertexPosNormTex(Vector3 position, Vector3 normal, Vector2 texCoords)
+public struct VertexPositionNormalTexture(Vector3 position, Vector3 normal, Vector2 texCoords)
 {
     public const uint SizeInBytes = 8 * sizeof(float);
 

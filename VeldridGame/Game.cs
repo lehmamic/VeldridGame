@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using VeldridGame.Rendering;
 
 namespace VeldridGame;
@@ -13,10 +14,16 @@ public class Game : IDisposable
 
     public void RunLoop()
     {
+        var sw = Stopwatch.StartNew();
+        double previousElapsed = sw.Elapsed.TotalSeconds;
+        
         while (_renderer.Window.Exists)
         {
+            var newElapsed = sw.Elapsed.TotalSeconds;
+            float deltaTimeInSeconds = (float)(newElapsed - previousElapsed);
+            
             _renderer.Window.PumpEvents();
-            _renderer.Draw();
+            _renderer.Draw(deltaTimeInSeconds);
         }
     }
 
