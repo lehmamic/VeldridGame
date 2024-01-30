@@ -15,10 +15,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Abstractions\" />
-    </ItemGroup>
-
-    <ItemGroup>
         <Content Include="Shaders/**/*">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>

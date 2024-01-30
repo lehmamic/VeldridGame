@@ -23,13 +23,14 @@ layout(set = 0, binding = 1) uniform ViewBuffer
     mat4 View;
 };
 
-layout(set = 1, binding = 0) uniform WorldBuffer
+layout(set = 0, binding = 2) uniform WorldBuffer
 {
     mat4 World;
 };
 
 layout(location = 0) in vec3 Position;
 layout(location = 1) in vec2 TexCoords;
+
 layout(location = 0) out vec2 fsin_texCoords;
 
 void main()
@@ -47,8 +48,8 @@ void main()
 layout(location = 0) in vec2 fsin_texCoords;
 layout(location = 0) out vec4 fsout_color;
 
-layout(set = 1, binding = 1) uniform texture2D SurfaceTexture;
-layout(set = 1, binding = 2) uniform sampler SurfaceSampler;
+layout(set = 1, binding = 0) uniform texture2D SurfaceTexture;
+layout(set = 1, binding = 1) uniform sampler SurfaceSampler;
 
 void main()
 {
@@ -66,8 +67,8 @@ void main()
     private readonly DeviceBuffer _worldBuffer;
     private readonly Texture _surfaceTexture;
     private readonly TextureView _surfaceTextureView;
-    private readonly ResourceSet _projViewSet;
-    private readonly ResourceSet _worldTextureSet;
+    private readonly ResourceSet _projViewWorldSet;
+    private readonly ResourceSet _textureSet;
     private object _stoneTexData;
     private readonly VertexPositionTexture[] _vertices;
     private readonly ushort[] _indices;
@@ -122,14 +123,14 @@ void main()
                 new ShaderDescription(ShaderStages.Vertex, Encoding.UTF8.GetBytes(VertexCode), "main"),
                 new ShaderDescription(ShaderStages.Fragment, Encoding.UTF8.GetBytes(FragmentCode), "main")));
 
-        ResourceLayout projViewLayout = factory.CreateResourceLayout(
+        ResourceLayout projViewWorldLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
                 new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
+                new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
         ResourceLayout worldTextureLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                 new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
                 new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
 
@@ -139,17 +140,17 @@ void main()
             RasterizerStateDescription.Default,
             PrimitiveTopology.TriangleList,
             shaderSet,
-            new[] { projViewLayout, worldTextureLayout },
+            new[] { projViewWorldLayout, worldTextureLayout },
             _graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
 
-        _projViewSet = factory.CreateResourceSet(new ResourceSetDescription(
-            projViewLayout,
+        _projViewWorldSet = factory.CreateResourceSet(new ResourceSetDescription(
+            projViewWorldLayout,
             _projectionBuffer,
-            _viewBuffer));
+            _viewBuffer,
+            _worldBuffer));
 
-        _worldTextureSet = factory.CreateResourceSet(new ResourceSetDescription(
+        _textureSet = factory.CreateResourceSet(new ResourceSetDescription(
             worldTextureLayout,
-            _worldBuffer,
             _surfaceTextureView,
             _graphicsDevice.Aniso4xSampler));
 
@@ -181,8 +182,8 @@ void main()
         _commandList.ClearDepthStencil(1f);
         _commandList.SetPipeline(_pipeline);
         _vao.SetActive(_commandList);
-        _commandList.SetGraphicsResourceSet(0, _projViewSet);
-        _commandList.SetGraphicsResourceSet(1, _worldTextureSet);
+        _commandList.SetGraphicsResourceSet(0, _projViewWorldSet);
+        _commandList.SetGraphicsResourceSet(1, _textureSet);
         _commandList.DrawIndexed(36, 1, 0, 0, 0);
 
         _commandList.End();
@@ -201,8 +202,8 @@ void main()
         _viewBuffer.Dispose();
         _worldBuffer.Dispose();
         
-        _projViewSet.Dispose();
-        _worldTextureSet.Dispose();
+        _projViewWorldSet.Dispose();
+        _textureSet.Dispose();
 
         foreach (var shader in _shaders)
         {
