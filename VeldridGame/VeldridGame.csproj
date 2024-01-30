@@ -13,4 +13,8 @@
         <PackageReference Include="Veldrid.SPIRV" Version="1.0.15" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Abstractions\" />
+    </ItemGroup>
+
 </Project>
