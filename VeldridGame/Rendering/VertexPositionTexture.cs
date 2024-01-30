@@ -1,8 +1,8 @@
-using System.Numerics;
+using Silk.NET.Maths;
 
 namespace VeldridGame.Rendering;
 
-public struct VertexPositionTexture(Vector3 pos, Vector2 uv)
+public struct VertexPositionTexture(Vector3D<float> pos, Vector2D<float> uv)
 {
     public const uint SizeInBytes = 20;
 

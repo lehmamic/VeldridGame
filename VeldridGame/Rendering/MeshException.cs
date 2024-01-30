@@ -1,4 +1,4 @@
-namespace VeldridGame.Abstractions;
+namespace VeldridGame.Rendering;
 
 public class MeshException : Exception
 {

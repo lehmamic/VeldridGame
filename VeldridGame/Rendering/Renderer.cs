@@ -1,10 +1,11 @@
 using System.Numerics;
 using System.Text;
+using Silk.NET.Maths;
 using Veldrid;
-using Veldrid.ImageSharp;
 using Veldrid.Sdl2;
 using Veldrid.SPIRV;
 using Veldrid.StartupUtilities;
+using VeldridGame.Maths.Geometry;
 
 namespace VeldridGame.Rendering;
 
@@ -58,7 +59,6 @@ void main()
     
     private readonly GraphicsDevice _graphicsDevice;
     private readonly Sdl2Window _window;
-    private readonly VertexArrayObject _vao;
     private readonly Shader[] _shaders;
     private readonly CommandList _commandList;
     private readonly Pipeline _pipeline;
@@ -66,11 +66,16 @@ void main()
     private readonly DeviceBuffer _viewBuffer;
     private readonly DeviceBuffer _worldBuffer;
 
+    private readonly ResourceLayout _textureLayout;
+    private readonly ResourceLayout _projViewWorldLayout;
+
     private readonly ResourceSet _projViewWorldSet;
     private readonly Texture _texture;
-
-    private readonly VertexPositionTexture[] _vertices;
-    private readonly ushort[] _indices;
+    
+    private readonly Mesh _mesh;
+    
+    // Map of textures loaded
+    private readonly Dictionary<string, Texture> _textures = new();
     
     private float _ticks;
 
@@ -96,16 +101,11 @@ void main()
 
         _graphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, GraphicsBackend.OpenGL);
         
-        ResourceFactory factory = _graphicsDevice.ResourceFactory;
-        
-        _vertices = GetCubeVertices();
-        _indices = GetCubeIndices();
+        var factory = _graphicsDevice.ResourceFactory;
 
         _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-
-        _vao = new VertexArrayObject(_graphicsDevice, _vertices, _indices);
 
         ShaderSetDescription shaderSet = new ShaderSetDescription(
             new[]
@@ -118,13 +118,13 @@ void main()
                 new ShaderDescription(ShaderStages.Vertex, Encoding.UTF8.GetBytes(VertexCode), "main"),
                 new ShaderDescription(ShaderStages.Fragment, Encoding.UTF8.GetBytes(FragmentCode), "main")));
 
-        ResourceLayout projViewWorldLayout = factory.CreateResourceLayout(
+        _projViewWorldLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
                 new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                 new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                 new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-        ResourceLayout textureLayout = factory.CreateResourceLayout(
+        _textureLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
                 new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
                 new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
@@ -135,21 +135,29 @@ void main()
             RasterizerStateDescription.Default,
             PrimitiveTopology.TriangleList,
             shaderSet,
-            [projViewWorldLayout, textureLayout],
+            [_projViewWorldLayout, _textureLayout],
             _graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
 
         _projViewWorldSet = factory.CreateResourceSet(new ResourceSetDescription(
-            projViewWorldLayout,
+            _projViewWorldLayout,
             _projectionBuffer,
             _viewBuffer,
             _worldBuffer));
-        
-        _texture = new Texture(_graphicsDevice, textureLayout, "Assets/Textures/spnza_bricks_a_diff.png");
+
+        _mesh = new Mesh(
+            radius: 0,
+            specularPower: 0,
+            shaderName: "simple",
+            textures: new List<Texture> {GetTexture("Assets/Textures/spnza_bricks_a_diff.png")},
+            box: new AABB(Vector3D<float>.Zero, Vector3D<float>.Zero),
+            vertexArrayObject: new VertexArrayObject(_graphicsDevice, GetCubeVertices(), GetCubeIndices()));
 
         _commandList = factory.CreateCommandList();
     }
     
     public Sdl2Window Window => _window;
+    
+    public GraphicsDevice GraphicsDevice => _graphicsDevice;
 
     public void Draw(float deltaTime)
     {
@@ -173,9 +181,9 @@ void main()
         _commandList.ClearColorTarget(0, RgbaFloat.Black);
         _commandList.ClearDepthStencil(1f);
         _commandList.SetPipeline(_pipeline);
-        _vao.SetActive(_commandList);
+        _mesh.VertexArrayObject.SetActive(_commandList);
         _commandList.SetGraphicsResourceSet(0, _projViewWorldSet);
-        _texture.SetActive(_commandList, 1);
+        _mesh.GetTexture(0)?.SetActive(_commandList, 1);
         _commandList.DrawIndexed(36, 1, 0, 0, 0);
 
         _commandList.End();
@@ -184,24 +192,37 @@ void main()
         _graphicsDevice.SwapBuffers(_graphicsDevice.MainSwapchain);
         _graphicsDevice.WaitForIdle();
     }
+    
+    public Texture GetTexture(string fileName)
+    {
+        if (!_textures.ContainsKey(fileName))
+        {
+            var texture = new Texture(_graphicsDevice, _textureLayout , fileName);
+            _textures.Add(fileName, texture);
+        }
+
+        return _textures[fileName];
+    }
 
     public void Dispose()
     {
         _commandList.Dispose();
         
-        _vao.Dispose();
+        _mesh.Dispose();
         _projectionBuffer.Dispose();
         _viewBuffer.Dispose();
         _worldBuffer.Dispose();
         
+        _projViewWorldLayout.Dispose();
         _projViewWorldSet.Dispose();
+        
+        _textureLayout.Dispose();
+        _texture.Dispose();
 
         foreach (var shader in _shaders)
         {
             shader.Dispose();
         }
-        
-        _texture.Dispose();
         
         _pipeline.Dispose();
         _graphicsDevice.Dispose();
@@ -212,35 +233,35 @@ void main()
         VertexPositionTexture[] vertices =
         [
             // Top
-            new VertexPositionTexture(new Vector3(-0.5f, +0.5f, -0.5f), new Vector2(0, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f, +0.5f, -0.5f), new Vector2(1, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f, +0.5f, +0.5f), new Vector2(1, 1)),
-            new VertexPositionTexture(new Vector3(-0.5f, +0.5f, +0.5f), new Vector2(0, 1)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, -0.5f), new Vector2D<float>(0, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, -0.5f), new Vector2D<float>(1, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, +0.5f), new Vector2D<float>(1, 1)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, +0.5f), new Vector2D<float>(0, 1)),
             // Bottom                                                             
-            new VertexPositionTexture(new Vector3(-0.5f,-0.5f, +0.5f),  new Vector2(0, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f,-0.5f, +0.5f),  new Vector2(1, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f,-0.5f, -0.5f),  new Vector2(1, 1)),
-            new VertexPositionTexture(new Vector3(-0.5f,-0.5f, -0.5f),  new Vector2(0, 1)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f,-0.5f, +0.5f),  new Vector2D<float>(0, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f,-0.5f, +0.5f),  new Vector2D<float>(1, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f,-0.5f, -0.5f),  new Vector2D<float>(1, 1)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f,-0.5f, -0.5f),  new Vector2D<float>(0, 1)),
             // Left                                                               
-            new VertexPositionTexture(new Vector3(-0.5f, +0.5f, -0.5f), new Vector2(0, 0)),
-            new VertexPositionTexture(new Vector3(-0.5f, +0.5f, +0.5f), new Vector2(1, 0)),
-            new VertexPositionTexture(new Vector3(-0.5f, -0.5f, +0.5f), new Vector2(1, 1)),
-            new VertexPositionTexture(new Vector3(-0.5f, -0.5f, -0.5f), new Vector2(0, 1)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, -0.5f), new Vector2D<float>(0, 0)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, +0.5f), new Vector2D<float>(1, 0)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, +0.5f), new Vector2D<float>(1, 1)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, -0.5f), new Vector2D<float>(0, 1)),
             // Right                                                              
-            new VertexPositionTexture(new Vector3(+0.5f, +0.5f, +0.5f), new Vector2(0, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f, +0.5f, -0.5f), new Vector2(1, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f, -0.5f, -0.5f), new Vector2(1, 1)),
-            new VertexPositionTexture(new Vector3(+0.5f, -0.5f, +0.5f), new Vector2(0, 1)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, +0.5f), new Vector2D<float>(0, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, -0.5f), new Vector2D<float>(1, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, -0.5f), new Vector2D<float>(1, 1)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, +0.5f), new Vector2D<float>(0, 1)),
             // Back                                                               
-            new VertexPositionTexture(new Vector3(+0.5f, +0.5f, -0.5f), new Vector2(0, 0)),
-            new VertexPositionTexture(new Vector3(-0.5f, +0.5f, -0.5f), new Vector2(1, 0)),
-            new VertexPositionTexture(new Vector3(-0.5f, -0.5f, -0.5f), new Vector2(1, 1)),
-            new VertexPositionTexture(new Vector3(+0.5f, -0.5f, -0.5f), new Vector2(0, 1)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, -0.5f), new Vector2D<float>(0, 0)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, -0.5f), new Vector2D<float>(1, 0)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, -0.5f), new Vector2D<float>(1, 1)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, -0.5f), new Vector2D<float>(0, 1)),
             // Front                                                              
-            new VertexPositionTexture(new Vector3(-0.5f, +0.5f, +0.5f), new Vector2(0, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f, +0.5f, +0.5f), new Vector2(1, 0)),
-            new VertexPositionTexture(new Vector3(+0.5f, -0.5f, +0.5f), new Vector2(1, 1)),
-            new VertexPositionTexture(new Vector3(-0.5f, -0.5f, +0.5f), new Vector2(0, 1))
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, +0.5f), new Vector2D<float>(0, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, +0.5f), new Vector2D<float>(1, 0)),
+            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, +0.5f), new Vector2D<float>(1, 1)),
+            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, +0.5f), new Vector2D<float>(0, 1))
         ];
 
         return vertices;

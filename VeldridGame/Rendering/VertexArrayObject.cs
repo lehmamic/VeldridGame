@@ -17,6 +17,34 @@ public class VertexArrayObject : IDisposable
         IndexBuffer = factory.CreateBuffer(new BufferDescription((uint)indices.Length * sizeof(ushort), BufferUsage.IndexBuffer));
         graphicsDevice.UpdateBuffer(IndexBuffer, 0, indices);
     }
+    
+    public VertexArrayObject(GraphicsDevice graphicsDevice, VertexPositionNormalTexture[] vertices, ushort[] indices)
+    {
+        NumberOfVertices = vertices.Length;
+        NumberOfIndices = indices.Length;
+
+        var factory = graphicsDevice.ResourceFactory;
+
+        VertexBuffer = factory.CreateBuffer(new BufferDescription((uint)vertices.Length * VertexPositionNormalTexture.SizeInBytes, BufferUsage.VertexBuffer));
+        graphicsDevice.UpdateBuffer(VertexBuffer, 0, vertices);
+
+        IndexBuffer = factory.CreateBuffer(new BufferDescription((uint)indices.Length * sizeof(ushort), BufferUsage.IndexBuffer));
+        graphicsDevice.UpdateBuffer(IndexBuffer, 0, indices);
+    }
+    
+    public VertexArrayObject(GraphicsDevice graphicsDevice, VertexPositionNormalSkinTexture[] vertices, ushort[] indices)
+    {
+        NumberOfVertices = vertices.Length;
+        NumberOfIndices = indices.Length;
+
+        var factory = graphicsDevice.ResourceFactory;
+
+        VertexBuffer = factory.CreateBuffer(new BufferDescription((uint)vertices.Length * VertexPositionNormalSkinTexture.SizeInBytes, BufferUsage.VertexBuffer));
+        graphicsDevice.UpdateBuffer(VertexBuffer, 0, vertices);
+
+        IndexBuffer = factory.CreateBuffer(new BufferDescription((uint)indices.Length * sizeof(ushort), BufferUsage.IndexBuffer));
+        graphicsDevice.UpdateBuffer(IndexBuffer, 0, indices);
+    }
 
     public int NumberOfVertices { get; }
 

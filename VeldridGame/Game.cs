@@ -11,6 +11,8 @@ public class Game : IDisposable
     {
         _renderer = new Renderer(1024, 768, "Veldrid Game");
     }
+    
+    public Renderer Renderer => _renderer;
 
     public void RunLoop()
     {

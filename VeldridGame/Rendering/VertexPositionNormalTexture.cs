@@ -1,14 +1,14 @@
-using System.Numerics;
+using Silk.NET.Maths;
 
 namespace VeldridGame.Rendering;
 
-public struct VertexPositionNormalTexture(Vector3 position, Vector3 normal, Vector2 texCoords)
+public struct VertexPositionNormalTexture(Vector3D<float> position, Vector3D<float> normal, Vector2D<float> texCoords)
 {
     public const uint SizeInBytes = 8 * sizeof(float);
 
-    public Vector3 Position = position;
+    public Vector3D<float> Position = position;
 
-    public Vector3 Normal = normal;
+    public Vector3D<float> Normal = normal;
 
-    public Vector2 TexCoords = texCoords;
+    public Vector2D<float> TexCoords = texCoords;
 }
