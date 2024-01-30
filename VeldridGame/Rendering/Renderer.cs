@@ -65,11 +65,10 @@ void main()
     private readonly DeviceBuffer _projectionBuffer;
     private readonly DeviceBuffer _viewBuffer;
     private readonly DeviceBuffer _worldBuffer;
-    private readonly Texture _surfaceTexture;
-    private readonly TextureView _surfaceTextureView;
+
     private readonly ResourceSet _projViewWorldSet;
-    private readonly ResourceSet _textureSet;
-    private object _stoneTexData;
+    private readonly Texture _texture;
+
     private readonly VertexPositionTexture[] _vertices;
     private readonly ushort[] _indices;
     
@@ -108,10 +107,6 @@ void main()
 
         _vao = new VertexArrayObject(_graphicsDevice, _vertices, _indices);
 
-        var image = new ImageSharpTexture("Assets/Textures/spnza_bricks_a_diff.png");
-        _surfaceTexture = image.CreateDeviceTexture(_graphicsDevice, factory);
-        _surfaceTextureView = factory.CreateTextureView(_surfaceTexture);
-
         ShaderSetDescription shaderSet = new ShaderSetDescription(
             new[]
             {
@@ -129,7 +124,7 @@ void main()
                 new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                 new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-        ResourceLayout worldTextureLayout = factory.CreateResourceLayout(
+        ResourceLayout textureLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
                 new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
                 new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
@@ -140,7 +135,7 @@ void main()
             RasterizerStateDescription.Default,
             PrimitiveTopology.TriangleList,
             shaderSet,
-            new[] { projViewWorldLayout, worldTextureLayout },
+            [projViewWorldLayout, textureLayout],
             _graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
 
         _projViewWorldSet = factory.CreateResourceSet(new ResourceSetDescription(
@@ -148,11 +143,8 @@ void main()
             _projectionBuffer,
             _viewBuffer,
             _worldBuffer));
-
-        _textureSet = factory.CreateResourceSet(new ResourceSetDescription(
-            worldTextureLayout,
-            _surfaceTextureView,
-            _graphicsDevice.Aniso4xSampler));
+        
+        _texture = new Texture(_graphicsDevice, textureLayout, "Assets/Textures/spnza_bricks_a_diff.png");
 
         _commandList = factory.CreateCommandList();
     }
@@ -183,7 +175,7 @@ void main()
         _commandList.SetPipeline(_pipeline);
         _vao.SetActive(_commandList);
         _commandList.SetGraphicsResourceSet(0, _projViewWorldSet);
-        _commandList.SetGraphicsResourceSet(1, _textureSet);
+        _texture.SetActive(_commandList, 1);
         _commandList.DrawIndexed(36, 1, 0, 0, 0);
 
         _commandList.End();
@@ -203,15 +195,13 @@ void main()
         _worldBuffer.Dispose();
         
         _projViewWorldSet.Dispose();
-        _textureSet.Dispose();
 
         foreach (var shader in _shaders)
         {
             shader.Dispose();
         }
         
-        _surfaceTexture.Dispose();
-        _surfaceTextureView.Dispose();
+        _texture.Dispose();
         
         _pipeline.Dispose();
         _graphicsDevice.Dispose();
