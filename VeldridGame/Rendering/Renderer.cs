@@ -24,7 +24,7 @@ layout(set = 0, binding = 1) uniform ViewBuffer
     mat4 View;
 };
 
-layout(set = 0, binding = 2) uniform WorldBuffer
+layout(set = 1, binding = 0) uniform WorldBuffer
 {
     mat4 World;
 };
@@ -49,8 +49,8 @@ void main()
 layout(location = 0) in vec2 fsin_texCoords;
 layout(location = 0) out vec4 fsout_color;
 
-layout(set = 1, binding = 0) uniform texture2D SurfaceTexture;
-layout(set = 1, binding = 1) uniform sampler SurfaceSampler;
+layout(set = 2, binding = 0) uniform texture2D SurfaceTexture;
+layout(set = 2, binding = 1) uniform sampler SurfaceSampler;
 
 void main()
 {
@@ -65,18 +65,22 @@ void main()
     private readonly DeviceBuffer _projectionBuffer;
     private readonly DeviceBuffer _viewBuffer;
     private readonly DeviceBuffer _worldBuffer;
+    
+    private readonly ResourceLayout _projViewLayout;
+    private readonly ResourceSet _projViewSet;
+    
+    private readonly ResourceLayout _worldTransformLayout;
+    private readonly ResourceSet _worldTransformSet;
 
     private readonly ResourceLayout _textureLayout;
-    private readonly ResourceLayout _projViewWorldLayout;
-
-    private readonly ResourceSet _projViewWorldSet;
     private readonly Texture _texture;
-    
+
     private readonly Mesh _mesh;
-    
+
+
     // Map of textures loaded
     private readonly Dictionary<string, Texture> _textures = new();
-    
+
     private float _ticks;
 
     public Renderer(int width, int height, string title)
@@ -118,10 +122,14 @@ void main()
                 new ShaderDescription(ShaderStages.Vertex, Encoding.UTF8.GetBytes(VertexCode), "main"),
                 new ShaderDescription(ShaderStages.Fragment, Encoding.UTF8.GetBytes(FragmentCode), "main")));
 
-        _projViewWorldLayout = factory.CreateResourceLayout(
+        _projViewLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
                 new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                 new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
+        
+        _worldTransformLayout = factory.CreateResourceLayout(
+            new ResourceLayoutDescription(
                 new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
         _textureLayout = factory.CreateResourceLayout(
@@ -135,13 +143,17 @@ void main()
             RasterizerStateDescription.Default,
             PrimitiveTopology.TriangleList,
             shaderSet,
-            [_projViewWorldLayout, _textureLayout],
+            [_projViewLayout, _worldTransformLayout, _textureLayout],
             _graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
 
-        _projViewWorldSet = factory.CreateResourceSet(new ResourceSetDescription(
-            _projViewWorldLayout,
+        _projViewSet = factory.CreateResourceSet(new ResourceSetDescription(
+            _projViewLayout,
             _projectionBuffer,
             _viewBuffer,
+            _worldBuffer));
+        
+        _worldTransformSet = factory.CreateResourceSet(new ResourceSetDescription(
+            _worldTransformLayout,
             _worldBuffer));
 
         _mesh = new Mesh(
@@ -182,8 +194,9 @@ void main()
         _commandList.ClearDepthStencil(1f);
         _commandList.SetPipeline(_pipeline);
         _mesh.VertexArrayObject.SetActive(_commandList);
-        _commandList.SetGraphicsResourceSet(0, _projViewWorldSet);
-        _mesh.GetTexture(0)?.SetActive(_commandList, 1);
+        _commandList.SetGraphicsResourceSet(0, _projViewSet);
+        _commandList.SetGraphicsResourceSet(1, _worldTransformSet);
+        _mesh.GetTexture(0)?.SetActive(_commandList, 2);
         _commandList.DrawIndexed(36, 1, 0, 0, 0);
 
         _commandList.End();
@@ -213,8 +226,8 @@ void main()
         _viewBuffer.Dispose();
         _worldBuffer.Dispose();
         
-        _projViewWorldLayout.Dispose();
-        _projViewWorldSet.Dispose();
+        _projViewLayout.Dispose();
+        _projViewSet.Dispose();
         
         _textureLayout.Dispose();
         _texture.Dispose();
