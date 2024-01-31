@@ -128,7 +128,7 @@ public class Mesh(
                 radius = Scalar.Max(radius, position.LengthSquared);
                 box.UpdateMinMax(position);
             }
-            
+
             // We where computing length squared earlier
             radius = Scalar.Sqrt(radius);
 

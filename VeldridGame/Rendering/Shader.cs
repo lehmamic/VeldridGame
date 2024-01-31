@@ -24,11 +24,13 @@ public class Shader : IDisposable
             {
                 new VertexLayoutDescription(
                     new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
+                    new VertexElementDescription("Normal", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
                     new VertexElementDescription("TexCoords", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
             },
             factory.CreateFromSpirv(
                 new ShaderDescription(ShaderStages.Vertex, File.ReadAllBytes(vertexShaderFilePath), "main"),
-                new ShaderDescription(ShaderStages.Fragment, File.ReadAllBytes(fragmentShaderFilePath), "main")));
+                new ShaderDescription(ShaderStages.Fragment, File.ReadAllBytes(fragmentShaderFilePath), "main")),
+            ShaderHelper.GetSpecializations(graphicsDevice));
         
         _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
@@ -57,7 +59,7 @@ public class Shader : IDisposable
         _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
             BlendStateDescription.SingleOverrideBlend,
             DepthStencilStateDescription.DepthOnlyLessEqual,
-            RasterizerStateDescription.Default,
+            RasterizerStateDescription.CullNone with { FrontFace = FrontFace.CounterClockwise },
             PrimitiveTopology.TriangleList,
             shaderSet,
             [_projViewLayout, _worldTransformLayout, _textureLayout],

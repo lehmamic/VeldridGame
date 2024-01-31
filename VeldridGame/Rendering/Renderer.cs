@@ -1,16 +1,20 @@
-using System.Numerics;
-using System.Text;
 using Silk.NET.Maths;
 using Veldrid;
 using Veldrid.Sdl2;
-using Veldrid.SPIRV;
 using Veldrid.StartupUtilities;
+using VeldridGame.Abstractions;
+using VeldridGame.Maths;
 using VeldridGame.Maths.Geometry;
 
 namespace VeldridGame.Rendering;
 
 public class Renderer : IDisposable
 {
+    private readonly Game _game;
+    
+    private readonly List<MeshComponent> _meshComps = new();
+    private readonly Dictionary<string, Mesh> _meshes = new();
+    
     private readonly GraphicsDevice _graphicsDevice;
     private readonly Sdl2Window _window;
     
@@ -18,16 +22,12 @@ public class Renderer : IDisposable
 
     private readonly CommandList _commandList;
 
-    private readonly Mesh _mesh;
-
     // Map of textures loaded
     private readonly Dictionary<string, Texture> _textures = new();
 
-    private float _ticks;
-
-
-    public Renderer(int width, int height, string title)
+    public Renderer(Game game, int width, int height, string title)
     {
+        _game = game;
         var windowCi = new WindowCreateInfo
         {
             X = 100,
@@ -37,9 +37,10 @@ public class Renderer : IDisposable
             WindowTitle = title
         };
         _window = VeldridStartup.CreateWindow(ref windowCi);
+        _window.Closed += OnWindowClosed;
         
         var options = new GraphicsDeviceOptions(
-            debug: false,
+            debug: true,
             swapchainDepthFormat: PixelFormat.R16_UNorm,
             syncToVerticalBlank: true,
             resourceBindingModel: ResourceBindingModel.Improved,
@@ -49,51 +50,55 @@ public class Renderer : IDisposable
         _graphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, GraphicsBackend.OpenGL);
 
         // Make sure we can load and compile shaders
-        _meshShader = new Shader(_graphicsDevice, "Shaders/SampleCube.vert", "Shaders/SampleCube.frag");
+        _meshShader = new Shader(_graphicsDevice, "Shaders/BasicMesh.vert", "Shaders/BasicMesh.frag");
 
-        _mesh = new Mesh(
-            radius: 0,
-            specularPower: 0,
-            shaderName: "simple",
-            textures: new List<Texture> {GetTexture("Assets/Textures/spnza_bricks_a_diff.png")},
-            box: new AABB(Vector3D<float>.Zero, Vector3D<float>.Zero),
-            vertexArrayObject: new VertexArrayObject(_graphicsDevice, GetCubeVertices(), GetCubeIndices()));
+        // Set the view-projection matrix
+        ViewMatrix = GameMath.CreateLookAt(Vector3D<float>.Zero, Vector3D<float>.UnitX, Vector3D<float>.UnitZ);
+        ProjectionMatrix = GameMath.CreatePerspectiveFieldOfView(
+            Scalar.DegreesToRadians(70.0f),
+            (float) Window.Width, Window.Height,
+            25.0f,                  // Near plane
+            10000.0f);
 
         var factory = _graphicsDevice.ResourceFactory;
         _commandList = factory.CreateCommandList();
     }
-    
+
     public Sdl2Window Window => _window;
     
     public GraphicsDevice GraphicsDevice => _graphicsDevice;
+    
+    public Matrix4X4<float> ViewMatrix { get; set; }
 
-    public void Draw(float deltaTime)
+    public Matrix4X4<float> ProjectionMatrix { get; set; }
+
+    public void Draw()
     {
-        _ticks += deltaTime * 1000f;
         _commandList.Begin();
 
-        _commandList.UpdateBuffer(_meshShader.ProjectionBuffer, 0, Matrix4X4.CreatePerspectiveFieldOfView(
-            1.0f,
-            (float)Window.Width / Window.Height,
-            0.5f,
-            100f));
-
-        _commandList.UpdateBuffer(_meshShader.ViewBuffer, 0, Matrix4X4.CreateLookAt(Vector3D<float>.UnitZ * 2.5f, Vector3D<float>.Zero, Vector3D<float>.UnitY));
-
-        Matrix4x4 rotation =
-            Matrix4x4.CreateFromAxisAngle(Vector3.UnitY, (_ticks / 1000f))
-            * Matrix4x4.CreateFromAxisAngle(Vector3.UnitX, (_ticks / 3000f));
-        _commandList.UpdateBuffer(_meshShader.WorldBuffer, 0, ref rotation);
-
+        // Set the current frame buffer
         _commandList.SetFramebuffer(_graphicsDevice.MainSwapchain.Framebuffer);
+        
+        // Clear color buffer/depth buffer
         _commandList.ClearColorTarget(0, RgbaFloat.Black);
         _commandList.ClearDepthStencil(1f);
 
+        // Set the basic mesh shader active
         _meshShader.SetActive(_commandList);
-        _mesh.VertexArrayObject.SetActive(_commandList);
-        _mesh.GetTexture(0)?.SetActive(_commandList, 2);
-        _commandList.DrawIndexed(36, 1, 0, 0, 0);
 
+        // Update view-projection matrix
+        _commandList.UpdateBuffer(_meshShader.ViewBuffer, 0, ViewMatrix);
+        _commandList.UpdateBuffer(_meshShader.ProjectionBuffer, 0, ProjectionMatrix);
+
+        // Draw all meshes
+        foreach (var mesh in _meshComps)
+        {
+            if (mesh.Visible)
+            {
+                mesh.Draw(_commandList, _meshShader);
+            }
+        }
+        
         _commandList.End();
 
         _graphicsDevice.SubmitCommands(_commandList);
@@ -116,10 +121,57 @@ public class Renderer : IDisposable
     {
         _commandList.Dispose();
         
-        _mesh.Dispose();
+        // Destroy textures
+        foreach (var texture in _textures.ToArray())
+        {
+            _textures.Remove(texture.Key);
+            texture.Value.Dispose();
+        }
+
+        // Destroy meshes
+        foreach (var mesh in _meshes.ToArray())
+        {
+            _meshes.Remove(mesh.Key);
+            mesh.Value.Dispose();
+        }
 
         _meshShader.Dispose();
         _graphicsDevice.Dispose();
+    }
+    
+    public void AddMeshComp(MeshComponent mesh)
+    {
+        if (mesh.IsSkeletal)
+        {
+            // _skeletalMeshes.Add((SkeletalMeshComponent)mesh);
+        }
+        else
+        {
+            _meshComps.Add(mesh);
+        }
+    }
+
+    public void RemoveMeshComp(MeshComponent mesh)
+    {
+        if (mesh.IsSkeletal)
+        {
+            // _skeletalMeshes.Remove((SkeletalMeshComponent) mesh);
+        }
+        else
+        {
+            _meshComps.Remove(mesh);
+        }
+    }
+    
+    public Mesh GetMesh(string fileName)
+    {
+        if (!_meshes.ContainsKey(fileName))
+        {
+            var mesh = Mesh.Load(fileName, _game);
+            _meshes.Add(fileName, mesh);
+        }
+
+        return _meshes[fileName];
     }
     
     private static VertexPositionTexture[] GetCubeVertices()
@@ -174,5 +226,10 @@ public class Renderer : IDisposable
         ];
 
         return indices;
+    }
+    
+    private void OnWindowClosed()
+    {
+        _game.State = GameState.Quit;
     }
 }
