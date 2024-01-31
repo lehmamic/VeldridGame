@@ -11,77 +11,20 @@ namespace VeldridGame.Rendering;
 
 public class Renderer : IDisposable
 {
-    private const string VertexCode = @"
-#version 450
-
-layout(set = 0, binding = 0) uniform ProjectionBuffer
-{
-    mat4 Projection;
-};
-
-layout(set = 0, binding = 1) uniform ViewBuffer
-{
-    mat4 View;
-};
-
-layout(set = 1, binding = 0) uniform WorldBuffer
-{
-    mat4 World;
-};
-
-layout(location = 0) in vec3 Position;
-layout(location = 1) in vec2 TexCoords;
-
-layout(location = 0) out vec2 fsin_texCoords;
-
-void main()
-{
-    vec4 worldPosition = World * vec4(Position, 1);
-    vec4 viewPosition = View * worldPosition;
-    vec4 clipPosition = Projection * viewPosition;
-    gl_Position = clipPosition;
-    fsin_texCoords = TexCoords;
-}";
-
-    private const string FragmentCode = @"
-#version 450
-
-layout(location = 0) in vec2 fsin_texCoords;
-layout(location = 0) out vec4 fsout_color;
-
-layout(set = 2, binding = 0) uniform texture2D SurfaceTexture;
-layout(set = 2, binding = 1) uniform sampler SurfaceSampler;
-
-void main()
-{
-    fsout_color =  texture(sampler2D(SurfaceTexture, SurfaceSampler), fsin_texCoords);
-}";
-    
     private readonly GraphicsDevice _graphicsDevice;
     private readonly Sdl2Window _window;
-    private readonly Shader[] _shaders;
-    private readonly CommandList _commandList;
-    private readonly Pipeline _pipeline;
-    private readonly DeviceBuffer _projectionBuffer;
-    private readonly DeviceBuffer _viewBuffer;
-    private readonly DeviceBuffer _worldBuffer;
     
-    private readonly ResourceLayout _projViewLayout;
-    private readonly ResourceSet _projViewSet;
-    
-    private readonly ResourceLayout _worldTransformLayout;
-    private readonly ResourceSet _worldTransformSet;
+    private readonly Shader _meshShader;
 
-    private readonly ResourceLayout _textureLayout;
-    private readonly Texture _texture;
+    private readonly CommandList _commandList;
 
     private readonly Mesh _mesh;
-
 
     // Map of textures loaded
     private readonly Dictionary<string, Texture> _textures = new();
 
     private float _ticks;
+
 
     public Renderer(int width, int height, string title)
     {
@@ -104,57 +47,9 @@ void main()
             preferStandardClipSpaceYDirection: true);
 
         _graphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, GraphicsBackend.OpenGL);
-        
-        var factory = _graphicsDevice.ResourceFactory;
 
-        _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-        _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-        _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-
-        ShaderSetDescription shaderSet = new ShaderSetDescription(
-            new[]
-            {
-                new VertexLayoutDescription(
-                    new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
-                    new VertexElementDescription("TexCoords", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
-            },
-            factory.CreateFromSpirv(
-                new ShaderDescription(ShaderStages.Vertex, Encoding.UTF8.GetBytes(VertexCode), "main"),
-                new ShaderDescription(ShaderStages.Fragment, Encoding.UTF8.GetBytes(FragmentCode), "main")));
-
-        _projViewLayout = factory.CreateResourceLayout(
-            new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
-        
-        _worldTransformLayout = factory.CreateResourceLayout(
-            new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
-
-        _textureLayout = factory.CreateResourceLayout(
-            new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
-                new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
-
-        _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
-            BlendStateDescription.SingleOverrideBlend,
-            DepthStencilStateDescription.DepthOnlyLessEqual,
-            RasterizerStateDescription.Default,
-            PrimitiveTopology.TriangleList,
-            shaderSet,
-            [_projViewLayout, _worldTransformLayout, _textureLayout],
-            _graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
-
-        _projViewSet = factory.CreateResourceSet(new ResourceSetDescription(
-            _projViewLayout,
-            _projectionBuffer,
-            _viewBuffer,
-            _worldBuffer));
-        
-        _worldTransformSet = factory.CreateResourceSet(new ResourceSetDescription(
-            _worldTransformLayout,
-            _worldBuffer));
+        // Make sure we can load and compile shaders
+        _meshShader = new Shader(_graphicsDevice, "Shaders/SampleCube.vert", "Shaders/SampleCube.frag");
 
         _mesh = new Mesh(
             radius: 0,
@@ -164,6 +59,7 @@ void main()
             box: new AABB(Vector3D<float>.Zero, Vector3D<float>.Zero),
             vertexArrayObject: new VertexArrayObject(_graphicsDevice, GetCubeVertices(), GetCubeIndices()));
 
+        var factory = _graphicsDevice.ResourceFactory;
         _commandList = factory.CreateCommandList();
     }
     
@@ -176,26 +72,25 @@ void main()
         _ticks += deltaTime * 1000f;
         _commandList.Begin();
 
-        _commandList.UpdateBuffer(_projectionBuffer, 0, Matrix4x4.CreatePerspectiveFieldOfView(
+        _commandList.UpdateBuffer(_meshShader.ProjectionBuffer, 0, Matrix4X4.CreatePerspectiveFieldOfView(
             1.0f,
             (float)Window.Width / Window.Height,
             0.5f,
             100f));
 
-        _commandList.UpdateBuffer(_viewBuffer, 0, Matrix4x4.CreateLookAt(Vector3.UnitZ * 2.5f, Vector3.Zero, Vector3.UnitY));
+        _commandList.UpdateBuffer(_meshShader.ViewBuffer, 0, Matrix4X4.CreateLookAt(Vector3D<float>.UnitZ * 2.5f, Vector3D<float>.Zero, Vector3D<float>.UnitY));
 
         Matrix4x4 rotation =
             Matrix4x4.CreateFromAxisAngle(Vector3.UnitY, (_ticks / 1000f))
             * Matrix4x4.CreateFromAxisAngle(Vector3.UnitX, (_ticks / 3000f));
-        _commandList.UpdateBuffer(_worldBuffer, 0, ref rotation);
+        _commandList.UpdateBuffer(_meshShader.WorldBuffer, 0, ref rotation);
 
         _commandList.SetFramebuffer(_graphicsDevice.MainSwapchain.Framebuffer);
         _commandList.ClearColorTarget(0, RgbaFloat.Black);
         _commandList.ClearDepthStencil(1f);
-        _commandList.SetPipeline(_pipeline);
+
+        _meshShader.SetActive(_commandList);
         _mesh.VertexArrayObject.SetActive(_commandList);
-        _commandList.SetGraphicsResourceSet(0, _projViewSet);
-        _commandList.SetGraphicsResourceSet(1, _worldTransformSet);
         _mesh.GetTexture(0)?.SetActive(_commandList, 2);
         _commandList.DrawIndexed(36, 1, 0, 0, 0);
 
@@ -210,7 +105,7 @@ void main()
     {
         if (!_textures.ContainsKey(fileName))
         {
-            var texture = new Texture(_graphicsDevice, _textureLayout , fileName);
+            var texture = new Texture(_graphicsDevice , fileName);
             _textures.Add(fileName, texture);
         }
 
@@ -222,22 +117,8 @@ void main()
         _commandList.Dispose();
         
         _mesh.Dispose();
-        _projectionBuffer.Dispose();
-        _viewBuffer.Dispose();
-        _worldBuffer.Dispose();
-        
-        _projViewLayout.Dispose();
-        _projViewSet.Dispose();
-        
-        _textureLayout.Dispose();
-        _texture.Dispose();
 
-        foreach (var shader in _shaders)
-        {
-            shader.Dispose();
-        }
-        
-        _pipeline.Dispose();
+        _meshShader.Dispose();
         _graphicsDevice.Dispose();
     }
     
