@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Silk.NET.Maths;
 using Veldrid;
 using VeldridGame.Abstractions;
+using VeldridGame.Camera;
 using VeldridGame.Input;
 using VeldridGame.Maths;
 using VeldridGame.Rendering;
@@ -21,6 +22,8 @@ public class Game : IDisposable
     private readonly List<Actor> _pendingActors = new();
     
     private bool _updatingActors = false;
+
+    private CameraActor _cameraActor;
 
     public Game()
     {
@@ -219,12 +222,15 @@ public class Game : IDisposable
         }
 
         // Setup lights
-        // _renderer.AmbientLight = new Vector3D<float>(0.2f, 0.2f, 0.2f);
-        // _renderer.DirectionalLight = new DirectionalLight(
-        //     direction: new Vector3D<float>(0.0f, -0.707f, -0.707f),
-        //     diffuseColor: new Vector3D<float>(0.78f, 0.88f, 1.0f),
-        //     specularColor: new Vector3D<float>(0.8f, 0.8f, 0.8f)
-        // );
+        _renderer.AmbientLight = new Vector3D<float>(0.2f, 0.2f, 0.2f);
+        _renderer.DirectionalLight = new DirectionalLight(
+            direction: new Vector3D<float>(0.0f, -0.707f, -0.707f),
+            diffuseColor: new Vector3D<float>(0.78f, 0.88f, 1.0f),
+            specularColor: new Vector3D<float>(0.8f, 0.8f, 0.8f)
+        );
+        
+        // Camera actor
+        _cameraActor = new CameraActor(this);
     }
     
     private void UnloadData()

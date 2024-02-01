@@ -7,7 +7,7 @@ namespace VeldridGame.Rendering;
 
 public class Mesh(
     float radius,
-    float specularPower,
+    Material material,
     string shaderName,
     IReadOnlyList<Texture> textures,
     AABB box,
@@ -16,7 +16,7 @@ public class Mesh(
 {
     public float Radius => radius;
 
-    public float SpecularPower => specularPower;
+    public Material Material => material;
 
     public string ShaderName => shaderName;
 
@@ -25,8 +25,7 @@ public class Mesh(
     public AABB Box => box;
 
     public VertexArrayObject VertexArrayObject => vertexArrayObject;
-
-
+    
     public static Mesh Load(string fileName, Game game)
     {
         // Load Textures
@@ -167,7 +166,7 @@ public class Mesh(
             throw new NotImplementedException($"The VAO layout {layout} has not been implemented yet.");
         }
 
-        return new Mesh(radius, specPower, shaderName, textures, box, vao);
+        return new Mesh(radius, new Material(specPower), shaderName, textures, box, vao);
     }
     
     public Texture? GetTexture(int index)

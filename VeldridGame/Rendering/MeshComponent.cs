@@ -27,24 +27,17 @@ public class MeshComponent : Component
     /// <param name="shader">The shader to use for drawing the mesh.</param>
     public virtual unsafe void Draw(CommandList commandList, Shader shader)
     {
-         // Set the world transform
-         commandList.UpdateBuffer(shader.WorldBuffer, 0, Owner.Transform.WorldTransform);
+        // Set the world transform
+        commandList.UpdateBuffer(shader.WorldBuffer, 0, Owner.Transform.WorldTransform);
 
-//         // Set specular power
-//         try
-//         {
-//             shader.SetUniform("uSpecPower", Mesh.SpecularPower);
-//         }
-//         catch (ShaderException)
-//         {
-//             // we catch it because the gbuffer shader has no lighting information
-//         }
-//
+        // Set specular power
+        commandList.UpdateBuffer(shader.MaterialBuffer, 0, Mesh.Material);
+
         // Set the active texture
         var texture = Mesh.GetTexture(TextureIndex);
         if (texture is not null)
         {
-            texture.SetActive(commandList, 2);
+            texture.SetActive(commandList, 4);
         }
 
         // Set mesh's vertex array as active

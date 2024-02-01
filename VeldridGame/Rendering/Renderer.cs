@@ -4,7 +4,6 @@ using Veldrid.Sdl2;
 using Veldrid.StartupUtilities;
 using VeldridGame.Abstractions;
 using VeldridGame.Maths;
-using VeldridGame.Maths.Geometry;
 
 namespace VeldridGame.Rendering;
 
@@ -24,6 +23,10 @@ public class Renderer : IDisposable
 
     // Map of textures loaded
     private readonly Dictionary<string, Texture> _textures = new();
+    
+    // Lighting data
+    public Vector3D<float> AmbientLight { get; set; }
+    public DirectionalLight DirectionalLight { get; set; }
 
     public Renderer(Game game, int width, int height, string title)
     {
@@ -50,7 +53,7 @@ public class Renderer : IDisposable
         _graphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, GraphicsBackend.OpenGL);
 
         // Make sure we can load and compile shaders
-        _meshShader = new Shader(_graphicsDevice, "Shaders/BasicMesh.vert", "Shaders/BasicMesh.frag");
+        _meshShader = new Shader(_graphicsDevice, "Shaders/Pong.vert", "Shaders/Pong.frag");
 
         // Set the view-projection matrix
         ViewMatrix = GameMath.CreateLookAt(Vector3D<float>.Zero, Vector3D<float>.UnitX, Vector3D<float>.UnitZ);
@@ -89,6 +92,9 @@ public class Renderer : IDisposable
         // Update view-projection matrix
         _commandList.UpdateBuffer(_meshShader.ViewBuffer, 0, ViewMatrix);
         _commandList.UpdateBuffer(_meshShader.ProjectionBuffer, 0, ProjectionMatrix);
+        
+        // Update lighting uniforms
+        SetLightUniforms(_meshShader);
 
         // Draw all meshes
         foreach (var mesh in _meshComps)
@@ -226,6 +232,19 @@ public class Renderer : IDisposable
         ];
 
         return indices;
+    }
+    
+    private void SetLightUniforms(Shader shader)
+    {
+        // Camera position is from inverted view
+        Matrix4X4.Invert(ViewMatrix, out var invView);
+        _commandList.UpdateBuffer(shader.CameraPositionBuffer, 0, new Vector4D<float>(invView.GetTranslation(), 0));
+
+        // Ambient light
+        _commandList.UpdateBuffer(shader.AmbientLightBuffer, 0, new Vector4D<float>(AmbientLight, 0));
+    
+        // Directional light
+        _commandList.UpdateBuffer(shader.DirectionalLightBuffer, 0, DirectionalLight);
     }
     
     private void OnWindowClosed()
