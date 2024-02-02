@@ -12,17 +12,11 @@ public class Shader : IDisposable
     private readonly ResourceLayout _lightInfoLayout;
     private readonly ResourceLayout _materialLayout;
     private readonly ResourceLayout _textureLayout;
-    private readonly DeviceBuffer _projectionBuffer;
-    private readonly DeviceBuffer _viewBuffer;
-    private readonly DeviceBuffer _worldBuffer;
-    private readonly DeviceBuffer _cameraPositionBuffer;
-    private readonly DeviceBuffer _ambientLightBuffer;
-    private readonly DeviceBuffer _directionalLightBuffer;
-    private readonly DeviceBuffer _materialBuffer;
     private readonly ResourceSet _projViewSet;
     private readonly ResourceSet _worldTransformSet;
     private readonly ResourceSet _lightInfoSet;
     private readonly ResourceSet _materialSet;
+    private readonly Dictionary<string, DeviceBuffer> _bufferMap = new();
 
     public Shader(GraphicsDevice graphicsDevice, string vertexShaderFilePath, string fragmentShaderFilePath)
     {
@@ -41,46 +35,46 @@ public class Shader : IDisposable
                 new ShaderDescription(ShaderStages.Fragment, File.ReadAllBytes(fragmentShaderFilePath), "main")),
             ShaderHelper.GetSpecializations(graphicsDevice));
         
-        _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-        _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+        _bufferMap[ShaderUniforms.ProjectionBuffer] = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+        _bufferMap[ShaderUniforms.ViewBuffer] = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         _projViewLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
+                new ResourceLayoutElementDescription(ShaderUniforms.ProjectionBuffer, ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                new ResourceLayoutElementDescription(ShaderUniforms.ViewBuffer, ResourceKind.UniformBuffer, ShaderStages.Vertex)));
         _projViewSet = factory.CreateResourceSet(new ResourceSetDescription(
             _projViewLayout,
-            _projectionBuffer,
-            _viewBuffer));
+            _bufferMap[ShaderUniforms.ProjectionBuffer],
+            _bufferMap[ShaderUniforms.ViewBuffer]));
         
-        _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+        _bufferMap[ShaderUniforms.WorldBuffer] = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         _worldTransformLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
+                new ResourceLayoutElementDescription(ShaderUniforms.WorldBuffer, ResourceKind.UniformBuffer, ShaderStages.Vertex)));
         _worldTransformSet = factory.CreateResourceSet(new ResourceSetDescription(
             _worldTransformLayout,
-            _worldBuffer));
+            _bufferMap[ShaderUniforms.WorldBuffer]));
         
-        _cameraPositionBuffer = factory.CreateBuffer(new BufferDescription(CameraInfo.SizeInBytes, BufferUsage.UniformBuffer));
-        _ambientLightBuffer = factory.CreateBuffer(new BufferDescription(AmbientLightInfo.SizeInBytes, BufferUsage.UniformBuffer));
-        _directionalLightBuffer = factory.CreateBuffer(new BufferDescription(DirectionalLightInfo.SizeInBytes, BufferUsage.UniformBuffer));
+        _bufferMap[ShaderUniforms.CameraBuffer] = factory.CreateBuffer(new BufferDescription(CameraInfo.SizeInBytes, BufferUsage.UniformBuffer));
+        _bufferMap[ShaderUniforms.AmbientLightBuffer] = factory.CreateBuffer(new BufferDescription(AmbientLightInfo.SizeInBytes, BufferUsage.UniformBuffer));
+        _bufferMap[ShaderUniforms.DirectionalLightBuffer] = factory.CreateBuffer(new BufferDescription(DirectionalLightInfo.SizeInBytes, BufferUsage.UniformBuffer));
         _lightInfoLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("CameraBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment),
-                new ResourceLayoutElementDescription("AmbientLightBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment),
-                new ResourceLayoutElementDescription("DirectionalLightBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+                new ResourceLayoutElementDescription(ShaderUniforms.CameraBuffer, ResourceKind.UniformBuffer, ShaderStages.Fragment),
+                new ResourceLayoutElementDescription(ShaderUniforms.AmbientLightBuffer, ResourceKind.UniformBuffer, ShaderStages.Fragment),
+                new ResourceLayoutElementDescription(ShaderUniforms.DirectionalLightBuffer, ResourceKind.UniformBuffer, ShaderStages.Fragment)));
         _lightInfoSet = factory.CreateResourceSet(new ResourceSetDescription(
             _lightInfoLayout,
-            _cameraPositionBuffer,
-            _ambientLightBuffer,
-            _directionalLightBuffer));
+            _bufferMap[ShaderUniforms.CameraBuffer],
+            _bufferMap[ShaderUniforms.AmbientLightBuffer],
+            _bufferMap[ShaderUniforms.DirectionalLightBuffer]));
         
-        _materialBuffer = factory.CreateBuffer(new BufferDescription(16, BufferUsage.UniformBuffer));
+        _bufferMap[ShaderUniforms.MaterialBuffer] = factory.CreateBuffer(new BufferDescription(16, BufferUsage.UniformBuffer));
         _materialLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("MaterialBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+                new ResourceLayoutElementDescription(ShaderUniforms.MaterialBuffer, ResourceKind.UniformBuffer, ShaderStages.Fragment)));
         _materialSet = factory.CreateResourceSet(new ResourceSetDescription(
             _materialLayout,
-            _materialBuffer));
+            _bufferMap[ShaderUniforms.MaterialBuffer]));
 
         _textureLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
@@ -97,20 +91,6 @@ public class Shader : IDisposable
             graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
     }
     
-    public DeviceBuffer ProjectionBuffer => _projectionBuffer;
-    
-    public DeviceBuffer ViewBuffer => _viewBuffer;
-    
-    public DeviceBuffer WorldBuffer => _worldBuffer;
-    
-    public DeviceBuffer CameraPositionBuffer => _cameraPositionBuffer;
-    
-    public DeviceBuffer AmbientLightBuffer => _ambientLightBuffer;
-    
-    public DeviceBuffer DirectionalLightBuffer => _directionalLightBuffer;
-    
-    public DeviceBuffer MaterialBuffer => _materialBuffer;
-    
     public ResourceLayout TextureLayout => _textureLayout;
 
     public void SetActive(CommandList commandList)
@@ -121,21 +101,24 @@ public class Shader : IDisposable
         commandList.SetGraphicsResourceSet(2, _lightInfoSet);
         commandList.SetGraphicsResourceSet(3, _materialSet);
     }
+    
+    public void SetUniform<T>(CommandList commandList, string buffer, T data)
+        where T : unmanaged
+    {
+        commandList.UpdateBuffer(_bufferMap[buffer], 0, data);
+    }
 
     public void Dispose()
     {
+        foreach (var buffer in _bufferMap.Values)
+        {
+            buffer.Dispose();
+        }
         _projViewLayout.Dispose();
         _worldTransformLayout.Dispose();
         _textureLayout.Dispose();
         _materialLayout.Dispose();
         _lightInfoLayout.Dispose();
-        _projectionBuffer.Dispose();
-        _viewBuffer.Dispose();
-        _worldBuffer.Dispose();
-        _cameraPositionBuffer.Dispose();
-        _ambientLightBuffer.Dispose();
-        _directionalLightBuffer.Dispose();
-        _materialBuffer.Dispose();
         _projViewSet.Dispose();
         _worldTransformSet.Dispose();
         _lightInfoSet.Dispose();

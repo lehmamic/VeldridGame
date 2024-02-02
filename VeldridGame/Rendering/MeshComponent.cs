@@ -25,13 +25,13 @@ public class MeshComponent : Component
     /// </summary>
     /// <param name="commandList"></param>
     /// <param name="shader">The shader to use for drawing the mesh.</param>
-    public virtual unsafe void Draw(CommandList commandList, Shader shader)
+    public virtual void Draw(CommandList commandList, Shader shader)
     {
         // Set the world transform
-        commandList.UpdateBuffer(shader.WorldBuffer, 0, Owner.Transform.WorldTransform);
+        shader.SetUniform(commandList, ShaderUniforms.WorldBuffer, Owner.Transform.WorldTransform);
 
         // Set specular power
-        commandList.UpdateBuffer(shader.MaterialBuffer, 0, Mesh.MaterialInfo);
+        shader.SetUniform(commandList, ShaderUniforms.MaterialBuffer, Mesh.MaterialInfo);
 
         // Set the active texture
         var texture = Mesh.GetTexture(TextureIndex);

@@ -91,8 +91,8 @@ public class Renderer : IDisposable
         _meshShader.SetActive(_commandList);
 
         // Update view-projection matrix
-        _commandList.UpdateBuffer(_meshShader.ViewBuffer, 0, ViewMatrix);
-        _commandList.UpdateBuffer(_meshShader.ProjectionBuffer, 0, ProjectionMatrix);
+        _meshShader.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
+        _meshShader.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
         
         // Update lighting uniforms
         SetLightUniforms(_meshShader);
@@ -239,13 +239,13 @@ public class Renderer : IDisposable
     {
         // Camera position is from inverted view
         Matrix4X4.Invert(ViewMatrix, out var invView);
-        _commandList.UpdateBuffer(shader.CameraPositionBuffer, 0, new CameraInfo(invView.GetTranslation()));
+        shader.SetUniform(_commandList, ShaderUniforms.CameraBuffer, new CameraInfo(invView.GetTranslation()));
 
         // Ambient light
-        _commandList.UpdateBuffer(shader.AmbientLightBuffer, 0, AmbientLight);
+        shader.SetUniform(_commandList, ShaderUniforms.AmbientLightBuffer, AmbientLight);
     
         // Directional light
-        _commandList.UpdateBuffer(shader.DirectionalLightBuffer, 0, DirectionalLightInfo);
+        shader.SetUniform(_commandList, ShaderUniforms.DirectionalLightBuffer, DirectionalLightInfo);
     }
     
     private void OnWindowClosed()
