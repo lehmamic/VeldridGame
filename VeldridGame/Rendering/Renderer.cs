@@ -11,20 +11,25 @@ namespace VeldridGame.Rendering;
 public class Renderer : IDisposable
 {
     private readonly Game _game;
-    
+
+    private readonly List<SpriteComponent> _sprites = new();
     private readonly List<MeshComponent> _meshComps = new();
     private readonly Dictionary<string, Mesh> _meshes = new();
     
     private readonly GraphicsDevice _graphicsDevice;
     private readonly Sdl2Window _window;
-    
+
+    private readonly Shader _spriteShader;
     private readonly Shader _meshShader;
+    
+    private VertexArrayObject _spriteVertices;
 
     private readonly CommandList _commandList;
 
     // Map of textures loaded
     private readonly Dictionary<string, Texture> _textures = new();
-    
+
+
     // Lighting data
     public AmbientLightInfo AmbientLight { get; set; }
     public DirectionalLightInfo DirectionalLightInfo { get; set; }
@@ -52,20 +57,39 @@ public class Renderer : IDisposable
             preferStandardClipSpaceYDirection: true);
 
         _graphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, GraphicsBackend.OpenGL);
+        
+        var factory = _graphicsDevice.ResourceFactory;
+        _commandList = factory.CreateCommandList();
+        _commandList.Begin();
 
         // Make sure we can load and compile shaders
-        _meshShader = new Shader(_graphicsDevice, "Shaders/Pong.vert", "Shaders/Pong.frag");
+        _spriteShader = new SpriteShader(_graphicsDevice, "Shaders/Sprite.vert", "Shaders/Sprite.frag");
+        _spriteShader.SetActive(_commandList);
+        
+        // Set the view-projection matrix
+        var spriteViewProj = GameMath.CreateSimpleViewProj(Window.Width, Window.Height);
+        _spriteShader.SetUniform(_commandList, ShaderUniforms.ViewBuffer, spriteViewProj);
+        
+        _meshShader = new MeshShader(_graphicsDevice, "Shaders/Pong.vert", "Shaders/Pong.frag");
+        _meshShader.SetActive(_commandList);
 
         // Set the view-projection matrix
         ViewMatrix = GameMath.CreateLookAt(Vector3D<float>.Zero, Vector3D<float>.UnitX, Vector3D<float>.UnitZ);
+        _meshShader.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
+
         ProjectionMatrix = GameMath.CreatePerspectiveFieldOfView(
             Scalar.DegreesToRadians(70.0f),
             (float) Window.Width, Window.Height,
             25.0f,                  // Near plane
             10000.0f);
-
-        var factory = _graphicsDevice.ResourceFactory;
-        _commandList = factory.CreateCommandList();
+        _meshShader.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
+        
+        // Create quad for drawing sprites
+        CreateSpriteVertices();
+        
+        _commandList.End();
+        _graphicsDevice.SubmitCommands(_commandList);
+        _graphicsDevice.WaitForIdle();
     }
 
     public Sdl2Window Window => _window;
@@ -79,6 +103,10 @@ public class Renderer : IDisposable
     public void Draw()
     {
         _commandList.Begin();
+        
+        /*
+         * Draw 3d scene to the frame buffers
+         */
 
         // Set the current frame buffer
         _commandList.SetFramebuffer(_graphicsDevice.MainSwapchain.Framebuffer);
@@ -106,6 +134,23 @@ public class Renderer : IDisposable
             }
         }
         
+        /*
+         * Draw all sprite components
+         */
+
+        // Set sprite shader and vertex array objects active
+        _spriteShader.SetActive(_commandList);
+        _spriteVertices.SetActive(_commandList);
+
+        // Draw all sprites
+        foreach (var sprite in _sprites)
+        {
+            if (sprite.Visible)
+            {
+                sprite.Draw(_commandList, _spriteShader);
+            }
+        }
+        
         _commandList.End();
 
         _graphicsDevice.SubmitCommands(_commandList);
@@ -122,6 +167,63 @@ public class Renderer : IDisposable
         }
 
         return _textures[fileName];
+    }
+
+    public void AddSprite(SpriteComponent sprite)
+    {
+        // Find the insertion point in the sorted vector
+        // (The first element with a order higher than me)
+        int index = 0;
+        for (; index < _sprites.Count; index++)
+        {
+            if (sprite.DrawOrder < _sprites[index].DrawOrder)
+            {
+                break;
+            }
+        }
+
+        // Inserts element before position of iterator
+        _sprites.Insert(index, sprite);
+    }
+
+    public void RemoveSprite(SpriteComponent sprite)
+    {
+        _sprites.Remove(sprite);
+    }
+
+    public void AddMeshComp(MeshComponent mesh)
+    {
+        if (mesh.IsSkeletal)
+        {
+            // _skeletalMeshes.Add((SkeletalMeshComponent)mesh);
+        }
+        else
+        {
+            _meshComps.Add(mesh);
+        }
+    }
+
+    public void RemoveMeshComp(MeshComponent mesh)
+    {
+        if (mesh.IsSkeletal)
+        {
+            // _skeletalMeshes.Remove((SkeletalMeshComponent) mesh);
+        }
+        else
+        {
+            _meshComps.Remove(mesh);
+        }
+    }
+
+    public Mesh GetMesh(string fileName)
+    {
+        if (!_meshes.ContainsKey(fileName))
+        {
+            var mesh = Mesh.Load(fileName, _game);
+            _meshes.Add(fileName, mesh);
+        }
+
+        return _meshes[fileName];
     }
 
     public void Dispose()
@@ -146,95 +248,24 @@ public class Renderer : IDisposable
         _graphicsDevice.Dispose();
     }
     
-    public void AddMeshComp(MeshComponent mesh)
+    private void CreateSpriteVertices()
     {
-        if (mesh.IsSkeletal)
-        {
-            // _skeletalMeshes.Add((SkeletalMeshComponent)mesh);
-        }
-        else
-        {
-            _meshComps.Add(mesh);
-        }
+        var vertices = new[] {
+            // vertex(3)/normal(3)/(uv coord)
+            new VertexPositionNormalTexture(new(-0.5f, 0.5f, 0.0f), new(0.0f, 0.0f, 0.0f), new(0.0f, 0.0f)), // top left
+            new VertexPositionNormalTexture(new(0.5f, 0.5f, 0.0f), new(0.0f, 0.0f, 0.0f), new(1.0f, 0.0f)), // top right
+            new VertexPositionNormalTexture(new(0.5f, -0.5f, 0.0f), new(0.0f, 0.0f, 0.0f), new(1.0f, 1.0f)), // bottom right
+            new VertexPositionNormalTexture(new(-0.5f, -0.5f, 0.0f), new(0.0f, 0.0f, 0.0f), new(0.0f, 1.0f)),  // bottom left
+        };
+
+        var indices = new ushort[] {
+            0, 1, 2,
+            2, 3, 0
+        };
+
+        _spriteVertices = new VertexArrayObject(_graphicsDevice, vertices, indices);
     }
 
-    public void RemoveMeshComp(MeshComponent mesh)
-    {
-        if (mesh.IsSkeletal)
-        {
-            // _skeletalMeshes.Remove((SkeletalMeshComponent) mesh);
-        }
-        else
-        {
-            _meshComps.Remove(mesh);
-        }
-    }
-    
-    public Mesh GetMesh(string fileName)
-    {
-        if (!_meshes.ContainsKey(fileName))
-        {
-            var mesh = Mesh.Load(fileName, _game);
-            _meshes.Add(fileName, mesh);
-        }
-
-        return _meshes[fileName];
-    }
-    
-    private static VertexPositionTexture[] GetCubeVertices()
-    {
-        VertexPositionTexture[] vertices =
-        [
-            // Top
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, -0.5f), new Vector2D<float>(0, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, -0.5f), new Vector2D<float>(1, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, +0.5f), new Vector2D<float>(1, 1)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, +0.5f), new Vector2D<float>(0, 1)),
-            // Bottom                                                             
-            new VertexPositionTexture(new Vector3D<float>(-0.5f,-0.5f, +0.5f),  new Vector2D<float>(0, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f,-0.5f, +0.5f),  new Vector2D<float>(1, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f,-0.5f, -0.5f),  new Vector2D<float>(1, 1)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f,-0.5f, -0.5f),  new Vector2D<float>(0, 1)),
-            // Left                                                               
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, -0.5f), new Vector2D<float>(0, 0)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, +0.5f), new Vector2D<float>(1, 0)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, +0.5f), new Vector2D<float>(1, 1)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, -0.5f), new Vector2D<float>(0, 1)),
-            // Right                                                              
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, +0.5f), new Vector2D<float>(0, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, -0.5f), new Vector2D<float>(1, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, -0.5f), new Vector2D<float>(1, 1)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, +0.5f), new Vector2D<float>(0, 1)),
-            // Back                                                               
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, -0.5f), new Vector2D<float>(0, 0)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, -0.5f), new Vector2D<float>(1, 0)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, -0.5f), new Vector2D<float>(1, 1)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, -0.5f), new Vector2D<float>(0, 1)),
-            // Front                                                              
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, +0.5f, +0.5f), new Vector2D<float>(0, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, +0.5f, +0.5f), new Vector2D<float>(1, 0)),
-            new VertexPositionTexture(new Vector3D<float>(+0.5f, -0.5f, +0.5f), new Vector2D<float>(1, 1)),
-            new VertexPositionTexture(new Vector3D<float>(-0.5f, -0.5f, +0.5f), new Vector2D<float>(0, 1))
-        ];
-
-        return vertices;
-    }
-
-    private static ushort[] GetCubeIndices()
-    {
-        ushort[] indices =
-        [
-            0,1,2, 0,2,3,
-            4,5,6, 4,6,7,
-            8,9,10, 8,10,11,
-            12,13,14, 12,14,15,
-            16,17,18, 16,18,19,
-            20,21,22, 20,22,23
-        ];
-
-        return indices;
-    }
-    
     private void SetLightUniforms(Shader shader)
     {
         // Camera position is from inverted view

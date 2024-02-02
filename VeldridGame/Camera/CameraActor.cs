@@ -1,6 +1,7 @@
 using Silk.NET.Maths;
 using Veldrid;
 using VeldridGame.Abstractions;
+using VeldridGame.GameObjects;
 using VeldridGame.Input;
 using VeldridGame.Maths;
 
@@ -8,12 +9,12 @@ namespace VeldridGame.Camera;
 
 public class CameraActor : Actor
 {
-    // private readonly MoveComponent _move;
+    private readonly MoveComponent _move;
 
     public CameraActor(Game game)
         : base(game)
     {
-        // _move = new MoveComponent(this);
+        _move = new MoveComponent(this);
     }
 
     protected override void UpdateActor(float deltaTime)
@@ -55,7 +56,7 @@ public class CameraActor : Actor
             angularSpeed += GameMath.TwoPi;
         }
 
-        // _move.ForwardSpeed = forwardSpeed;
-        // _move.AngularSpeed = angularSpeed;
+        _move.ForwardSpeed = forwardSpeed;
+        _move.AngularSpeed = angularSpeed;
     }
 }

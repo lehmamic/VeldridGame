@@ -1,7 +1,7 @@
 using VeldridGame.Abstractions;
 using VeldridGame.Rendering;
 
-namespace VeldridGame;
+namespace VeldridGame.GameObjects;
 
 public class PlaneActor : Actor
 {

@@ -3,6 +3,7 @@ using Silk.NET.Maths;
 using Veldrid;
 using VeldridGame.Abstractions;
 using VeldridGame.Camera;
+using VeldridGame.GameObjects;
 using VeldridGame.Input;
 using VeldridGame.Maths;
 using VeldridGame.Rendering;
@@ -233,6 +234,24 @@ public class Game : IDisposable
         
         // Camera actor
         _cameraActor = new CameraActor(this);
+        
+        // UI elements
+        actor = new Actor(this);
+        actor.Transform.Position = new Vector3D<float>(-350.0f, -350.0f, 0.0f);
+            
+        _ = new SpriteComponent(actor)
+        {
+            Texture = _renderer.GetTexture("Assets/HealthBar.png")
+        };
+
+        actor = new Actor(this);
+        actor.Transform.Position = new Vector3D<float>(375.0f, -275.0f, 0.0f);
+        actor.Transform.Scale = 0.75f;
+
+        _ = new SpriteComponent(actor)
+        {
+            Texture = _renderer.GetTexture("Assets/Radar.png")
+        };
     }
     
     private void UnloadData()

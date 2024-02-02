@@ -25,6 +25,10 @@ public class Texture : IDisposable
         _textureSet = factory.CreateResourceSet(new ResourceSetDescription(_textureLayout, _textureView, graphicsDevice.Aniso4xSampler));
     }
     
+    public uint Width => _texture.Width;
+    
+    public uint Height => _texture.Height;
+    
     public void SetActive(CommandList commandList, uint slot)
     {
         commandList.SetGraphicsResourceSet(slot, _textureSet);
