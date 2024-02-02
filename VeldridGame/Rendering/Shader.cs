@@ -65,9 +65,9 @@ public class Shader : IDisposable
         _directionalLightBuffer = factory.CreateBuffer(new BufferDescription(DirectionalLightInfo.SizeInBytes, BufferUsage.UniformBuffer));
         _lightInfoLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("Camera", ResourceKind.UniformBuffer, ShaderStages.Fragment),
-                new ResourceLayoutElementDescription("AmbientLight", ResourceKind.UniformBuffer, ShaderStages.Fragment),
-                new ResourceLayoutElementDescription("DirectionalLight", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+                new ResourceLayoutElementDescription("CameraBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment),
+                new ResourceLayoutElementDescription("AmbientLightBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment),
+                new ResourceLayoutElementDescription("DirectionalLightBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
         _lightInfoSet = factory.CreateResourceSet(new ResourceSetDescription(
             _lightInfoLayout,
             _cameraPositionBuffer,
@@ -77,7 +77,7 @@ public class Shader : IDisposable
         _materialBuffer = factory.CreateBuffer(new BufferDescription(16, BufferUsage.UniformBuffer));
         _materialLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("SpecularPower", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+                new ResourceLayoutElementDescription("MaterialBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
         _materialSet = factory.CreateResourceSet(new ResourceSetDescription(
             _materialLayout,
             _materialBuffer));
