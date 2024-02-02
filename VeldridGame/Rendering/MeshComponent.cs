@@ -31,7 +31,7 @@ public class MeshComponent : Component
         commandList.UpdateBuffer(shader.WorldBuffer, 0, Owner.Transform.WorldTransform);
 
         // Set specular power
-        commandList.UpdateBuffer(shader.MaterialBuffer, 0, Mesh.Material);
+        commandList.UpdateBuffer(shader.MaterialBuffer, 0, Mesh.MaterialInfo);
 
         // Set the active texture
         var texture = Mesh.GetTexture(TextureIndex);

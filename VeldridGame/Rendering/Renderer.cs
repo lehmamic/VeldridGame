@@ -3,6 +3,7 @@ using Veldrid;
 using Veldrid.Sdl2;
 using Veldrid.StartupUtilities;
 using VeldridGame.Abstractions;
+using VeldridGame.Camera;
 using VeldridGame.Maths;
 
 namespace VeldridGame.Rendering;
@@ -25,8 +26,8 @@ public class Renderer : IDisposable
     private readonly Dictionary<string, Texture> _textures = new();
     
     // Lighting data
-    public Vector3D<float> AmbientLight { get; set; }
-    public DirectionalLight DirectionalLight { get; set; }
+    public AmbientLightInfo AmbientLight { get; set; }
+    public DirectionalLightInfo DirectionalLightInfo { get; set; }
 
     public Renderer(Game game, int width, int height, string title)
     {
@@ -238,13 +239,13 @@ public class Renderer : IDisposable
     {
         // Camera position is from inverted view
         Matrix4X4.Invert(ViewMatrix, out var invView);
-        _commandList.UpdateBuffer(shader.CameraPositionBuffer, 0, new Vector4D<float>(invView.GetTranslation(), 0));
+        _commandList.UpdateBuffer(shader.CameraPositionBuffer, 0, new CameraInfo(invView.GetTranslation()));
 
         // Ambient light
-        _commandList.UpdateBuffer(shader.AmbientLightBuffer, 0, new Vector4D<float>(AmbientLight, 0));
+        _commandList.UpdateBuffer(shader.AmbientLightBuffer, 0, AmbientLight);
     
         // Directional light
-        _commandList.UpdateBuffer(shader.DirectionalLightBuffer, 0, DirectionalLight);
+        _commandList.UpdateBuffer(shader.DirectionalLightBuffer, 0, DirectionalLightInfo);
     }
     
     private void OnWindowClosed()

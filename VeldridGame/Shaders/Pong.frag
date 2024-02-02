@@ -7,11 +7,20 @@ struct DirectionalLightInfo
     // Direction of light
     vec3 Direction;
 
+    // Required to fill the uiform up to a factor of 16 bytes
+    float _padding0;
+
     // Diffuse color
     vec3 DiffuseColor;
 
+    // Required to fill the uiform up to a factor of 16 bytes
+    float _padding1;
+
     // Specular color
     vec3 SpecColor;
+
+    // Required to fill the uiform up to a factor of 16 bytes
+    float _padding2;
 };
 
 // Create a structure for material
@@ -19,6 +28,29 @@ struct MaterialInfo
 {
     // Specular power for this surface
     float SpecPower;
+
+    // Required to fill the uiform up to a factor of 16 bytes
+    float _padding0;
+    float _padding1;
+    float _padding2;
+};
+
+struct AmbientLightInfo
+{
+    // Ambient light level
+    vec3 Color;
+
+// Required to fill the uiform up to a factor of 16 bytes
+    float _padding0;
+};
+
+struct CameraInfo
+{
+    // Camera position
+    vec3 Position;
+
+    // Required to fill the uiform up to a factor of 16 bytes
+    float _padding0;
 };
 
 // Text coord input from vertex shader
@@ -32,15 +64,15 @@ layout(location = 2) in vec3 fragWorldPos;
 
 // Uniforms for lighting
 // Camera position (in world space)
-layout(set = 2, binding = 0) uniform CameraPositionBuffer
+layout(set = 2, binding = 0) uniform CameraBuffer
 {
-    vec3 CameraPosition;
+    CameraInfo Camera;
 };
 
 // Ambient light level
 layout(set = 2, binding = 1) uniform AmbientLightBuffer
 {
-    vec3 AmbientLight;
+    AmbientLightInfo AmbientLight;
 };
 
 // Directional Light (only one for now)
@@ -72,13 +104,13 @@ void main()
     vec3 L = normalize(-DirLight.Direction);
 
     // Vector from surface to camera
-    vec3 V = normalize(CameraPosition - fragWorldPos);
+    vec3 V = normalize(Camera.Position - fragWorldPos);
 
     // Reflection of -L about N
     vec3 R = normalize(reflect(-L, N));
 
     // Compute phong reflection
-    vec3 Phong = AmbientLight;
+    vec3 Phong = AmbientLight.Color;
     float NdotL = dot(N, L);
     if (NdotL > 0)
     {

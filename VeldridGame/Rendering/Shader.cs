@@ -1,5 +1,6 @@
 using Veldrid;
 using Veldrid.SPIRV;
+using VeldridGame.Camera;
 
 namespace VeldridGame.Rendering;
 
@@ -59,12 +60,12 @@ public class Shader : IDisposable
             _worldTransformLayout,
             _worldBuffer));
         
-        _cameraPositionBuffer = factory.CreateBuffer(new BufferDescription(16, BufferUsage.UniformBuffer));
-        _ambientLightBuffer = factory.CreateBuffer(new BufferDescription(16, BufferUsage.UniformBuffer));
-        _directionalLightBuffer = factory.CreateBuffer(new BufferDescription(48, BufferUsage.UniformBuffer));
+        _cameraPositionBuffer = factory.CreateBuffer(new BufferDescription(CameraInfo.SizeInBytes, BufferUsage.UniformBuffer));
+        _ambientLightBuffer = factory.CreateBuffer(new BufferDescription(AmbientLightInfo.SizeInBytes, BufferUsage.UniformBuffer));
+        _directionalLightBuffer = factory.CreateBuffer(new BufferDescription(DirectionalLightInfo.SizeInBytes, BufferUsage.UniformBuffer));
         _lightInfoLayout = factory.CreateResourceLayout(
             new ResourceLayoutDescription(
-                new ResourceLayoutElementDescription("CameraPosition", ResourceKind.UniformBuffer, ShaderStages.Fragment),
+                new ResourceLayoutElementDescription("Camera", ResourceKind.UniformBuffer, ShaderStages.Fragment),
                 new ResourceLayoutElementDescription("AmbientLight", ResourceKind.UniformBuffer, ShaderStages.Fragment),
                 new ResourceLayoutElementDescription("DirectionalLight", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
         _lightInfoSet = factory.CreateResourceSet(new ResourceSetDescription(
