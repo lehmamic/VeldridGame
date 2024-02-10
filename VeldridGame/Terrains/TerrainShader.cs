@@ -59,7 +59,7 @@ public class TerrainShader : Shader
         _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
             BlendStateDescription.SingleOverrideBlend,
             DepthStencilStateDescription.DepthOnlyLessEqual,
-            RasterizerStateDescription.CullNone with { FrontFace = FrontFace.CounterClockwise },
+            RasterizerStateDescription.CullNone with { FrontFace = FrontFace.CounterClockwise, FillMode = PolygonFillMode.Wireframe},
             PrimitiveTopology.TriangleList,
             shaderSet,
             [_projViewLayout, _worldTransformLayout],

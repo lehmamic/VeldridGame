@@ -191,7 +191,7 @@ public class Game : IDisposable
         
         _ = new TerrainComponent(actor)
         {
-            Terrain = _renderer.GetTerrain("Assets/heightmap_flat.png")
+            Terrain = _renderer.GetTerrain("Assets/heightmap_flat_test.png")
         };
         
         var start = -1250.0f;
@@ -243,8 +243,8 @@ public class Game : IDisposable
         
         // Camera actor
         _cameraActor = new CameraActor(this);
-        _cameraActor.Transform.Position = new Vector3D<float>(0.0f, 0.0f, 100.0f);
-        _cameraActor.Transform.RotateToNewForward(new Vector3D<float>(0.0f, 0.0f, -100.0f));
+        // _cameraActor.Transform.Position = new Vector3D<float>(0.0f, 0.0f, 100.0f);
+        // _cameraActor.Transform.RotateToNewForward(new Vector3D<float>(0.0f, 0.0f, -100.0f));
         
         // UI elements
         actor = new Actor(this);

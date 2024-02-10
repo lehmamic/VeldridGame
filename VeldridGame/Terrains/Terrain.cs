@@ -41,11 +41,9 @@ public class Terrain : IDisposable
             for(int y = 0; y < vertexCount; y++){
                 // position
                 var position = new Vector3D<float>(
-                    -Size / 2.0f + x,
-                    -Size / 2.0f + y,
-                    // x / ((float)vertexCount - 1) * Size,
-                    // y / ((float)vertexCount - 1) * Size,
-                    0); //GetHeight(y, x, image));
+                    x / ((float)vertexCount - 1) * Size - Size / 2.0f,
+                    y / ((float)vertexCount - 1) * Size - Size / 2.0f,
+                    GetHeight(x, y, image));
 
                 // normals
                 var normal = CalculateNormal( x, y, image);
@@ -103,9 +101,9 @@ public class Terrain : IDisposable
             return 0;
         }
 
-        var pixelColor = image[y, x]; // x and y are flipped because of teh left handed coordinate system (x goes strait anf y goes right)
+        var pixelColor = image[y, image.Height - x - 1]; // x and y are flipped because of the left handed coordinate system (x goes strait anf y goes right)
         // its grayscale so we an use only one color attribute
-        float height = -1 * pixelColor.R;
+        float height = 1 * pixelColor.R;
         height += MaxPixelColor / 2.0f;
         height /= MaxPixelColor / 2.0f;
         height *= MaxHeight;
