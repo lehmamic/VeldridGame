@@ -12,6 +12,7 @@ public class TerrainShader : Shader
     private readonly ResourceLayout _textureLayout;
     private readonly ResourceSet _projViewSet;
     private readonly ResourceSet _worldTransformSet;
+
     private readonly Pipeline _pipeline;
 
     public TerrainShader(GraphicsDevice graphicsDevice, string vertexShaderFilePath, string fragmentShaderFilePath)
@@ -72,5 +73,20 @@ public class TerrainShader : Shader
         commandList.SetPipeline(_pipeline);
         commandList.SetGraphicsResourceSet(0, _projViewSet);
         commandList.SetGraphicsResourceSet(1, _worldTransformSet);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _projViewLayout.Dispose();
+            _worldTransformLayout.Dispose();
+            _textureLayout.Dispose();
+            _projViewSet.Dispose();
+            _worldTransformSet.Dispose();
+            _pipeline.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 }

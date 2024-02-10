@@ -28,8 +28,11 @@ void main()
     // Convert position to homogeneous coordinates
     vec4 pos = vec4(Position, 1.0);
 
+    // Transform position to world space
+    pos = World * pos;
+
     // Transform position to world space, then clip space
-    gl_Position = Projection * View * World * pos;
+    gl_Position = Projection * View * pos;
 
     // Pass along the texture coordinate to frag shader
     fragTextCoord = TexCoords;

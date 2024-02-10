@@ -159,7 +159,7 @@ public class Renderer : IDisposable
         {
             if (terrain.Visible)
             {
-                terrain.Draw(_commandList, _meshShader);
+                terrain.Draw(_commandList, _terrainShader);
             }
         }
         

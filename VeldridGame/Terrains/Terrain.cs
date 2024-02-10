@@ -41,8 +41,10 @@ public class Terrain : IDisposable
             for(int y = 0; y < vertexCount; y++){
                 // position
                 var position = new Vector3D<float>(
-                    x / ((float)vertexCount - 1) * Size,
-                    y / ((float)vertexCount - 1) * Size,
+                    -Size / 2.0f + x,
+                    -Size / 2.0f + y,
+                    // x / ((float)vertexCount - 1) * Size,
+                    // y / ((float)vertexCount - 1) * Size,
                     0); //GetHeight(y, x, image));
 
                 // normals
