@@ -7,6 +7,7 @@ using VeldridGame.GameObjects;
 using VeldridGame.Input;
 using VeldridGame.Maths;
 using VeldridGame.Rendering;
+using VeldridGame.Terrains;
 
 namespace VeldridGame;
 
@@ -185,16 +186,24 @@ public class Game : IDisposable
         };
         
         // Setup floor
+        actor = new Actor(this);
+        actor.Transform.Position = new Vector3D<float>(0.0f, 0.0f, -100.0f);
+        
+        _ = new TerrainComponent(actor)
+        {
+            Terrain = _renderer.GetTerrain("Assets/heightmap_flat.png")
+        };
+        
         var start = -1250.0f;
         var size = 250.0f;
-        for (int i = 0; i < 10; i++)
-        {
-            for (int j = 0; j < 10; j++)
-            {
-                actor = new PlaneActor(this);
-                actor.Transform.Position = new Vector3D<float>(start + i * size, start + j * size, -100.0f);
-            }
-        }
+        // for (int i = 0; i < 10; i++)
+        // {
+        //     for (int j = 0; j < 10; j++)
+        //     {
+        //         actor = new PlaneActor(this);
+        //         actor.Transform.Position = new Vector3D<float>(start + i * size, start + j * size, -100.0f);
+        //     }
+        // }
 
         // Left/right walls
         q = GameMath.CreateQuaternion(Vector3D<float>.UnitX, Scalar<float>.PiOver2);
@@ -234,6 +243,8 @@ public class Game : IDisposable
         
         // Camera actor
         _cameraActor = new CameraActor(this);
+        _cameraActor.Transform.Position = new Vector3D<float>(0.0f, 0.0f, 100.0f);
+        _cameraActor.Transform.RotateToNewForward(new Vector3D<float>(0.0f, 0.0f, -100.0f));
         
         // UI elements
         actor = new Actor(this);

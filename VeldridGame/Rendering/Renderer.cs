@@ -5,6 +5,7 @@ using Veldrid.StartupUtilities;
 using VeldridGame.Abstractions;
 using VeldridGame.Camera;
 using VeldridGame.Maths;
+using VeldridGame.Terrains;
 
 namespace VeldridGame.Rendering;
 
@@ -13,6 +14,8 @@ public class Renderer : IDisposable
     private readonly Game _game;
 
     private readonly List<SpriteComponent> _sprites = new();
+    private readonly List<TerrainComponent> _terrainComps = new();
+    private readonly Dictionary<string, Terrain> _terrains = new();
     private readonly List<MeshComponent> _meshComps = new();
     private readonly Dictionary<string, Mesh> _meshes = new();
     
@@ -28,6 +31,7 @@ public class Renderer : IDisposable
 
     // Map of textures loaded
     private readonly Dictionary<string, Texture> _textures = new();
+    private readonly TerrainShader _terrainShader;
 
 
     // Lighting data
@@ -72,6 +76,8 @@ public class Renderer : IDisposable
         
         _meshShader = new MeshShader(_graphicsDevice, "Shaders/Pong.vert", "Shaders/Pong.frag");
         _meshShader.SetActive(_commandList);
+        
+        _terrainShader = new TerrainShader(_graphicsDevice, "Shaders/Terrain.vert", "Shaders/Terrain.frag");
 
         // Set the view-projection matrix
         ViewMatrix = GameMath.CreateLookAt(Vector3D<float>.Zero, Vector3D<float>.UnitX, Vector3D<float>.UnitZ);
@@ -131,6 +137,29 @@ public class Renderer : IDisposable
             if (mesh.Visible)
             {
                 mesh.Draw(_commandList, _meshShader);
+            }
+        }
+        
+        /*
+         * Draw terrain to the frame buffers
+         */
+
+        // Set the basic mesh shader active
+        _terrainShader.SetActive(_commandList);
+
+        // Update view-projection matrix
+        _terrainShader.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
+        _terrainShader.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
+        
+        // // Update lighting uniforms
+        // SetLightUniforms(_meshShader);
+
+        // Draw all meshes
+        foreach (var terrain in _terrainComps)
+        {
+            if (terrain.Visible)
+            {
+                terrain.Draw(_commandList, _meshShader);
             }
         }
         
@@ -214,6 +243,16 @@ public class Renderer : IDisposable
             _meshComps.Remove(mesh);
         }
     }
+    
+    public void AddTerrain(TerrainComponent sprite)
+    {
+        _terrainComps.Add(sprite);
+    }
+
+    public void RemoveTerrain(TerrainComponent sprite)
+    {
+        _terrainComps.Remove(sprite);
+    }
 
     public Mesh GetMesh(string fileName)
     {
@@ -224,6 +263,17 @@ public class Renderer : IDisposable
         }
 
         return _meshes[fileName];
+    }
+    
+    public Terrain GetTerrain(string fileName)
+    {
+        if (!_terrains.ContainsKey(fileName))
+        {
+            var mesh = new Terrain(_graphicsDevice, 0, 0, fileName);
+            _terrains.Add(fileName, mesh);
+        }
+
+        return _terrains[fileName];
     }
 
     public void Dispose()
@@ -243,8 +293,20 @@ public class Renderer : IDisposable
             _meshes.Remove(mesh.Key);
             mesh.Value.Dispose();
         }
+        
+        // Destroy terrains
+        foreach (var terrain in _terrains.ToArray())
+        {
+            _terrains.Remove(terrain.Key);
+            terrain.Value.Dispose();
+        }
+        
+        _spriteVertices.Dispose();
 
+        _spriteShader.Dispose();
         _meshShader.Dispose();
+        _terrainShader.Dispose();
+
         _graphicsDevice.Dispose();
     }
     
