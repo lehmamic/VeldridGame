@@ -12,8 +12,6 @@ public class Scene(Game game) : EngineObject(game)
 
     public IEnumerable<Actor> Actors => _actors.Where(a => a is { IsDestroyed: false });
 
-    public IEnumerable<Actor> ActiveActors => _actors.Where(a => a is { IsDestroyed: false, Enabled: true });
-
     public void AddActor(Actor actor)
     {
         // If updating actors, need to add to pending

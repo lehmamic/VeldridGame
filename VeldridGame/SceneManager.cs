@@ -54,7 +54,7 @@ public class SceneManager(Game game) : ISceneManager
     {
         // Process input for all actors
         _updatingActors = true;
-        foreach (var actor in Scene.ActiveActors)
+        foreach (var actor in Scene.Actors.Where(a => a.Enabled))
         {
             actor.ProcessInput(state);
         }
@@ -65,7 +65,7 @@ public class SceneManager(Game game) : ISceneManager
     {
         // Update all actors
         _updatingActors = true;
-        foreach (var actor in Scene.ActiveActors)
+        foreach (var actor in Scene.Actors.Where(a => a.Enabled))
         {
             actor.Update(deltaTime);
         }
