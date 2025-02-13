@@ -4,6 +4,7 @@ using VeldridGame.Abstractions;
 using VeldridGame.GameObjects;
 using VeldridGame.Input;
 using VeldridGame.Maths;
+using VeldridGame.Resources;
 
 namespace VeldridGame.Camera;
 
@@ -11,8 +12,8 @@ public class CameraActor : Actor
 {
     private readonly MoveComponent _move;
 
-    public CameraActor(Game game)
-        : base(game)
+    public CameraActor(Scene scene)
+        : base(scene)
     {
         _move = new MoveComponent(this);
     }

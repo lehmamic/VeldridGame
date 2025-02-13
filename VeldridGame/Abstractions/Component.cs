@@ -2,25 +2,26 @@ using VeldridGame.Input;
 
 namespace VeldridGame.Abstractions;
 
-public class Component : IDisposable
+public class Component : EngineObject
 {
     /// <summary>
     /// Constructor. Creates an instance of the Component.
     /// </summary>
-    /// <param name="owner">The owning actor.</param>
+    /// <param name="actor">The owning actor.</param>
     /// <param name="updateOrder">The update order of the component. The lower the update order, the earlier the component updates. Defaults to 100.</param>
-    public Component(Actor owner, int updateOrder = 100)
+    public Component(Actor actor, int updateOrder = 100)
+     : base(actor.Game)
     {
-        Owner = owner;
+        Actor = actor;
         UpdateOrder = updateOrder;
 
-        Owner.AddComponent(this);
+        Actor.AddComponent(this);
     }
 
     /// <summary>
     /// The owning actor.
     /// </summary>
-    public Actor Owner { get; }
+    public Actor Actor { get; }
 
     /// <summary>
     /// The update order of the component. The lower the update order, the earlier the component updates.
@@ -50,20 +51,13 @@ public class Component : IDisposable
     {
     }
 
-    /// <summary>
-    /// Disposes the component which will remove itself from the actor.
-    /// </summary>
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
+    protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            Owner.RemoveComponent(this);
+            Actor.RemoveComponent(this);
         }
+        
+        base.Dispose(disposing);
     }
 }
