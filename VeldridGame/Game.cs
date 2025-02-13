@@ -7,6 +7,7 @@ using VeldridGame.GameObjects;
 using VeldridGame.Input;
 using VeldridGame.Maths;
 using VeldridGame.Rendering;
+using VeldridGame.Resources;
 
 namespace VeldridGame;
 
@@ -17,30 +18,28 @@ public class Game : IDisposable
 
     private readonly Renderer _renderer;
     private readonly InputSystem _inputSystem = new();
-    
-    // All the actors in the game
-    private readonly List<Actor> _actors = new();
-    private readonly List<Actor> _pendingActors = new();
-    
-    private bool _updatingActors = false;
+
+    private readonly SceneManager _sceneManager;
 
     private CameraActor _cameraActor;
 
     public Game()
     {
         _renderer = new Renderer(this, 1024, 768, "Veldrid Game");
+        _sceneManager = new(this);
     }
     
     public Renderer Renderer => _renderer;
     
     public InputSystem InputSystem => _inputSystem;
+
+    public ISceneManager SceneManager => _sceneManager;
     
     public GameState State { get; set; } = GameState.GamePlay;
 
     public void RunLoop()
     {
         LoadData();
-            
     
         var gameTimer = Stopwatch.StartNew();
         var accumulatedElapsedTime = TimeSpan.Zero;
@@ -59,28 +58,6 @@ public class Game : IDisposable
                 GenerateOutput();
             }
         }
-    }
-    
-    public void AddActor(Actor actor)
-    {
-        // If updating actors, need to add to pending
-        if (_updatingActors)
-        {
-            _pendingActors.Add(actor);
-        }
-        else
-        {
-            _actors.Add(actor);
-        }
-    }
-    
-    public void RemoveActor(Actor actor)
-    {
-        // Is it in pending actors?
-        _pendingActors.Remove(actor);
-
-        // Is it in actors?
-        _actors.Remove(actor);
     }
 
     public void Dispose()
@@ -101,13 +78,7 @@ public class Game : IDisposable
     
         if (State == GameState.GamePlay)
         {
-            // Process input for all actors
-            _updatingActors = true;
-            foreach (var actor in _actors.Where(a => a.State == ActorState.Active))
-            {
-                actor.ProcessInput( _inputSystem.State);
-            }
-            _updatingActors = false;
+            _sceneManager.ProcessInput(_inputSystem.State);
         }
     }
     
@@ -121,29 +92,7 @@ public class Game : IDisposable
 
         if (State == GameState.GamePlay)
         {
-            // Update all actors
-            _updatingActors = true;
-            foreach (var actor in _actors)
-            {
-                actor.Update(deltaTime);
-            }
-            _updatingActors = false;
-
-            // Move any pending actors to _actors
-            foreach (var pending in _pendingActors)
-            {
-                pending.Transform.ComputeWorldTransform();
-                _actors.Add(pending);
-            }
-
-            _pendingActors.Clear();
-
-            // Delete dead actors (which removes them from _actors)
-            var deadActors = _actors.Where(a => a.State == ActorState.Dead).ToArray();
-            foreach (var actor in deadActors)
-            {
-                actor.Dispose();
-            }
+            _sceneManager.UpdateGame(deltaTime);
         }
     }
 
@@ -162,8 +111,10 @@ public class Game : IDisposable
 
     private void LoadData()
     {
+        var scene = new Scene(this);
+
         // Create actors
-        var actor = new Actor(this);
+        var actor = new Actor(scene);
         actor.Transform.Position = new Vector3D<float>(200.0f, 75.0f, 0.0f);
         actor.Transform.Scale = 100.0f;
 
@@ -175,7 +126,7 @@ public class Game : IDisposable
             Mesh = _renderer.GetMesh("Assets/Cube.gpmesh")
         };
 
-        actor = new Actor(this);
+        actor = new Actor(scene);
         actor.Transform.Position = new Vector3D<float>(200.0f, -75.0f, 0.0f);
         actor.Transform.Scale = 3.0f;
         
@@ -191,7 +142,7 @@ public class Game : IDisposable
         {
             for (int j = 0; j < 10; j++)
             {
-                actor = new PlaneActor(this);
+                actor = new PlaneActor(scene);
                 actor.Transform.Position = new Vector3D<float>(start + i * size, start + j * size, -100.0f);
             }
         }
@@ -200,11 +151,11 @@ public class Game : IDisposable
         q = GameMath.CreateQuaternion(Vector3D<float>.UnitX, Scalar<float>.PiOver2);
         for (int i = 0; i < 10; i++)
         {
-            actor = new PlaneActor(this);
+            actor = new PlaneActor(scene);
             actor.Transform.Position = new Vector3D<float>(start + i * size, start - size, 0.0f);
             actor.Transform.Rotation = q;
         
-            actor = new PlaneActor(this);
+            actor = new PlaneActor(scene);
             actor.Transform.Position = new Vector3D<float>(start + i * size, -start + size, 0.0f);
             actor.Transform.Rotation = q;
         }
@@ -213,11 +164,11 @@ public class Game : IDisposable
         // Forward/back walls
         for (int i = 0; i < 10; i++)
         {
-            actor = new PlaneActor(this);
+            actor = new PlaneActor(scene);
             actor.Transform.Position = new Vector3D<float>(start - size, start + i * size, 0.0f);
             actor.Transform.Rotation = q;
         
-            actor = new PlaneActor(this);
+            actor = new PlaneActor(scene);
             actor.Transform.Position = new Vector3D<float>(-start + size, start + i * size, 0.0f);
             actor.Transform.Rotation = q;
         }
@@ -233,10 +184,10 @@ public class Game : IDisposable
         );
         
         // Camera actor
-        _cameraActor = new CameraActor(this);
+        _cameraActor = new CameraActor(scene);
         
         // UI elements
-        actor = new Actor(this);
+        actor = new Actor(scene);
         actor.Transform.Position = new Vector3D<float>(-350.0f, -350.0f, 0.0f);
             
         _ = new SpriteComponent(actor)
@@ -244,7 +195,7 @@ public class Game : IDisposable
             Texture = _renderer.GetTexture("Assets/HealthBar.png")
         };
 
-        actor = new Actor(this);
+        actor = new Actor(scene);
         actor.Transform.Position = new Vector3D<float>(375.0f, -275.0f, 0.0f);
         actor.Transform.Scale = 0.75f;
 
@@ -252,15 +203,12 @@ public class Game : IDisposable
         {
             Texture = _renderer.GetTexture("Assets/Radar.png")
         };
+        
+        _sceneManager.LoadScene(scene);
     }
     
     private void UnloadData()
     {
-        // Delete actors
-        // Because ~Actor calls RemoveActor, have to use a different style loop
-        foreach (var actor in _actors.ToArray())
-        {
-            actor.Dispose();
-        }
+        _sceneManager.Clear();
     }
 }

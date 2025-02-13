@@ -1,12 +1,13 @@
 using VeldridGame.Abstractions;
 using VeldridGame.Rendering;
+using VeldridGame.Resources;
 
 namespace VeldridGame.GameObjects;
 
 public class PlaneActor : Actor
 {
-    public PlaneActor(Game game)
-        : base(game)
+    public PlaneActor(Scene scene)
+        : base(scene)
     {
         Transform.Scale = 10.0f;
         var mesh = new MeshComponent(this);

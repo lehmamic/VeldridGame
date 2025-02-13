@@ -1,45 +1,30 @@
 using VeldridGame.Input;
+using VeldridGame.Resources;
 
 namespace VeldridGame.Abstractions;
 
-public class Actor : IDisposable
+public class Actor : EngineObject
 {
     private readonly List<Component> _components = new();
 
-    // transformation
     private readonly Transform _transform;
 
-    /// <summary>
-    /// Constructor. Creates an instance of the Actor.
-    /// </summary>
-    /// <param name="game">The owning game.</param>
-    public Actor(Game game)
+    public Actor(Scene scene)
+    : base(scene.Game)
     {
-        Game = game;
-        Game.AddActor(this);
+        Scene = scene;
+        Scene.AddActor(this);
 
         _transform = new(this);
     }
 
-    ~Actor()
-    {
-        Dispose(false);
-    }
+    public Scene Scene { get; }
 
-    /// <summary>
-    /// The owning game.
-    /// </summary>
-    public Game Game { get; }
-
-    /// <summary>
-    /// Actor's state.
-    /// </summary>
     public ActorState State { get; set; } = ActorState.Active;
 
     public Transform Transform => _transform;
     
     public IReadOnlyList<Component> Components => _components;
-    
 
     /// <summary>
     /// Update function called from Game (not overridable).
@@ -97,8 +82,7 @@ public class Actor : IDisposable
     {
         _components.Remove(component);
     }
-    
-    // Search through component vector for one of type
+
     public Component? GetComponent(string type)
     {
         return _components.Find(c => string.Equals(c.GetType().Name, type, StringComparison.OrdinalIgnoreCase));
@@ -152,11 +136,11 @@ public class Actor : IDisposable
     {
     }
 
-    protected virtual void Dispose(bool disposing)
+    protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            Game.RemoveActor(this);
+            Scene.RemoveActor(this);
 
             // Need to delete components
             // Because ~Component calls RemoveComponent, need a different style loop
@@ -167,5 +151,7 @@ public class Actor : IDisposable
                 _components.Remove(component);
             }
         }
+        
+        base.Dispose(disposing);
     }
 }

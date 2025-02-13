@@ -6,12 +6,12 @@ namespace VeldridGame.Rendering;
 
 public class SpriteComponent : Component
 {
-    public SpriteComponent(Actor owner, int drawOrder = 100)
-        : base(owner)
+    public SpriteComponent(Actor actor, int drawOrder = 100)
+        : base(actor)
     {
         DrawOrder = drawOrder;
 
-        Owner.Game.Renderer.AddSprite(this);
+        Actor.Game.Renderer.AddSprite(this);
     }
 
     public int DrawOrder { get; }
@@ -25,7 +25,7 @@ public class SpriteComponent : Component
         // Scale the quad by the width/height of texture
         Matrix4X4<float> scaleMat = Matrix4X4.CreateScale(Texture.Width, Texture.Height, 1.0f);
 
-        Matrix4X4<float> world = scaleMat * Owner.Transform.WorldTransform;
+        Matrix4X4<float> world = scaleMat * Actor.Transform.WorldTransform;
 
         // Since all sprites use the same shader/vertices,
         // the game first sets them active before any sprite draws
@@ -44,7 +44,7 @@ public class SpriteComponent : Component
     {
         if (disposing)
         {
-            Owner.Game.Renderer.RemoveSprite(this);
+            Actor.Game.Renderer.RemoveSprite(this);
         }
 
         base.Dispose(disposing);

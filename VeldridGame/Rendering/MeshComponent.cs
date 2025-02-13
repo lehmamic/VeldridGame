@@ -5,11 +5,11 @@ namespace VeldridGame.Rendering;
 
 public class MeshComponent : Component
 {
-    public MeshComponent(Actor owner, bool isSkeletal = false)
-        : base(owner)
+    public MeshComponent(Actor actor, bool isSkeletal = false)
+        : base(actor)
     {
         IsSkeletal = isSkeletal;
-        Owner.Game.Renderer.AddMeshComp(this);
+        Actor.Game.Renderer.AddMeshComp(this);
     }
 
     public bool Visible { get; set; } = true;
@@ -28,7 +28,7 @@ public class MeshComponent : Component
     public virtual void Draw(CommandList commandList, Shader shader)
     {
         // Set the world transform
-        shader.SetUniform(commandList, ShaderUniforms.WorldBuffer, Owner.Transform.WorldTransform);
+        shader.SetUniform(commandList, ShaderUniforms.WorldBuffer, Actor.Transform.WorldTransform);
 
         // Set specular power
         shader.SetUniform(commandList, ShaderUniforms.MaterialBuffer, Mesh.MaterialInfo);
@@ -52,7 +52,7 @@ public class MeshComponent : Component
     {
         if (disposing)
         {
-            Owner.Game.Renderer.RemoveMeshComp(this);
+            Actor.Game.Renderer.RemoveMeshComp(this);
         }
 
         base.Dispose(disposing);
