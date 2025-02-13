@@ -30,10 +30,8 @@ public class SceneManager(Game game) : ISceneManager
 
             // The act of Destroying a active scene sets the current scene to an new one
             // During this period the previous scene is Destroyed, making Res return null, hence the ? here
-            // SceneRef.Res.DestroyImmediate();
-            //
-            // EngineObject.HandleDestroyed();
-            _sceneRef.Res.Dispose();
+            _sceneRef.Res.DestroyImmediate();
+            EngineObject.HandleDestroyed();
 
             _sceneRef = new Scene(game);
         }
@@ -56,7 +54,7 @@ public class SceneManager(Game game) : ISceneManager
     {
         // Process input for all actors
         _updatingActors = true;
-        foreach (var actor in Scene.Actors.Where(a => a.State == ActorState.Active))
+        foreach (var actor in Scene.ActiveActors)
         {
             actor.ProcessInput(state);
         }
@@ -67,7 +65,7 @@ public class SceneManager(Game game) : ISceneManager
     {
         // Update all actors
         _updatingActors = true;
-        foreach (var actor in Scene.Actors)
+        foreach (var actor in Scene.ActiveActors)
         {
             actor.Update(deltaTime);
         }
@@ -75,12 +73,8 @@ public class SceneManager(Game game) : ISceneManager
 
         // Move any pending actors to _actors
         Scene.ActivatePendingActors();
-
+        
         // Delete dead actors (which removes them from _actors)
-        var deadActors = Scene.Actors.Where(a => a.State == ActorState.Dead).ToArray();
-        foreach (var actor in deadActors)
-        {
-            actor.Dispose();
-        }
+        EngineObject.HandleDestroyed();
     }
 }

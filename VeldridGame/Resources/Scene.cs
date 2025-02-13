@@ -3,20 +3,17 @@ using VeldridGame.Camera;
 
 namespace VeldridGame.Resources;
 
-public class Scene : EngineObject
+public class Scene(Game game) : EngineObject(game)
 {
     private readonly HashSet<Actor> _actors = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<Actor> _pendingActors = new(ReferenceEqualityComparer.Instance);
     
     private CameraActor _cameraActor = null!;
-    
-    public IEnumerable<Actor> Actors => _actors;
 
-    public Scene(Game game)
-        : base(game)
-    {
-    }
-    
+    public IEnumerable<Actor> Actors => _actors.Where(a => a is { IsDestroyed: false });
+
+    public IEnumerable<Actor> ActiveActors => _actors.Where(a => a is { IsDestroyed: false, Enabled: true });
+
     public void AddActor(Actor actor)
     {
         // If updating actors, need to add to pending
@@ -57,7 +54,7 @@ public class Scene : EngineObject
         {
             // Delete actors
             // Because ~Actor calls RemoveActor, have to use a different style loop
-            foreach (var actor in Actors.ToArray())
+            foreach (var actor in _actors.ToArray())
             {
                 actor.Dispose();
             }

@@ -8,6 +8,8 @@ public class Actor : EngineObject
     private readonly List<Component> _components = new();
 
     private readonly Transform _transform;
+    
+    private bool _enabled = true;
 
     public Actor(Scene scene)
     : base(scene.Game)
@@ -19,8 +21,19 @@ public class Actor : EngineObject
     }
 
     public Scene Scene { get; }
-
-    public ActorState State { get; set; } = ActorState.Active;
+    
+    public bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            if (value != _enabled)
+            {
+                _enabled = value;
+                // HierarchyStateChanged();
+            }
+        }
+    }
 
     public Transform Transform => _transform;
     
@@ -32,7 +45,7 @@ public class Actor : EngineObject
     /// <param name="deltaTime">The delta time between two frames.</param>
     public void Update(float deltaTime)
     {
-        if (State == ActorState.Active)
+        if (_enabled)
         {
             _transform.ComputeWorldTransform();
 
@@ -49,7 +62,7 @@ public class Actor : EngineObject
     /// <param name="state"></param>
     public void ProcessInput(InputState state)
     {
-        if (State == ActorState.Active)
+        if (_enabled)
         {
             // First process input for components
             foreach (var component in _components)
@@ -147,9 +160,15 @@ public class Actor : EngineObject
             while (_components.Any())
             {
                 var component = _components.Last();
-                component.Dispose();
-                _components.Remove(component);
+                if (component.IsDestroyed)
+                {
+                    continue;
+                }
+
+                component.DestroyImmediate();
             }
+            
+            _components.Clear();
         }
         
         base.Dispose(disposing);

@@ -14,7 +14,7 @@ public struct AssetRef<T> : IEquatable<AssetRef<T>> where T : EngineObject
     {
         get
         {
-            if (_instance == null)// || _instance.IsDestroyed)
+            if (_instance == null || _instance.IsDestroyed)
             {
                 RetrieveInstance();
             }
@@ -29,7 +29,7 @@ public struct AssetRef<T> : IEquatable<AssetRef<T>> where T : EngineObject
         }
     }
     
-    public T? ResWeak => _instance == null /* || _instance.IsDestroyed*/ ? null : _instance;
+    public T? ResWeak => _instance == null || _instance.IsDestroyed ? null : _instance;
 
     public Guid AssetId
     {
@@ -62,7 +62,7 @@ public struct AssetRef<T> : IEquatable<AssetRef<T>> where T : EngineObject
     {
         get
         {
-            if (_instance != null) // && !_instance.IsDestroyed)
+            if (_instance != null && !_instance.IsDestroyed)
             {
                 return true;
             }
@@ -77,7 +77,7 @@ public struct AssetRef<T> : IEquatable<AssetRef<T>> where T : EngineObject
     {
         get
         {
-            if (_instance != null) // && !_instance.IsDestroyed)
+            if (_instance != null && !_instance.IsDestroyed)
             {
                 return true;
             }
