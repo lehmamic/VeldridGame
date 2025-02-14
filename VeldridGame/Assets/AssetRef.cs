@@ -1,6 +1,6 @@
 using VeldridGame.Abstractions;
 
-namespace VeldridGame.Resources;
+namespace VeldridGame.Assets;
 
 public struct AssetRef<T> : IEquatable<AssetRef<T>> where T : EngineObject
 {
