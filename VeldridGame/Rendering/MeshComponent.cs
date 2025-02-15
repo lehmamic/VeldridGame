@@ -25,7 +25,7 @@ public class MeshComponent : Component
     /// </summary>
     /// <param name="commandList"></param>
     /// <param name="shader">The shader to use for drawing the mesh.</param>
-    public virtual void Draw(CommandList commandList, Shader shader)
+    public virtual void Draw(CommandList commandList, ShaderBase shader)
     {
         // Set the world transform
         shader.SetUniform(commandList, ShaderUniforms.WorldBuffer, Actor.Transform.WorldTransform);

@@ -9,7 +9,7 @@ public class Mesh(
     float radius,
     MaterialInfo materialInfo,
     string shaderName,
-    IReadOnlyList<Texture> textures,
+    IReadOnlyList<Texture2D> textures,
     AABB box,
     VertexArrayObject vertexArrayObject)
     : IDisposable
@@ -20,7 +20,7 @@ public class Mesh(
 
     public string ShaderName => shaderName;
 
-    public IReadOnlyList<Texture> Textures => textures;
+    public IReadOnlyList<Texture2D> Textures => textures;
 
     public AABB Box => box;
 
@@ -53,19 +53,19 @@ public class Mesh(
         }
 
         // Load the textures
-        var textures = new List<Texture>();
+        var textures = new List<Texture2D>();
         foreach (var textureName in raw.Textures)
         {
-            Texture texture;
+            Texture2D texture;
             try
             {
                 // Is this texture already loaded?
-                texture = game.Renderer.GetTexture(textureName);
+                texture = game.AssetProvider.LoadAsset<Texture2D>(textureName).Res;
             }
             catch
             {
                 // If it's still null, just use the default texture
-                texture = game.Renderer.GetTexture("Assets/Default.png");
+                texture = game.AssetProvider.LoadAsset<Texture2D>("Default.png").Res;
             }
 
             textures.Add(texture);
@@ -131,7 +131,7 @@ public class Mesh(
             // We where computing length squared earlier
             radius = Scalar.Sqrt(radius);
 
-            vao = new VertexArrayObject(game.Renderer.GraphicsDevice, vertices, indices);
+            vao = new VertexArrayObject(game.Graphics.Device, vertices, indices);
         }
         else if (layout == VertexFormat.PosNormSkinTex)
         {
@@ -159,7 +159,7 @@ public class Mesh(
             // We where computing length squared earlier
             radius = Scalar.Sqrt(radius);
         
-            vao = new VertexArrayObject(game.Renderer.GraphicsDevice, vertices, indices);
+            vao = new VertexArrayObject(game.Graphics.Device, vertices, indices);
         }
         else
         {
@@ -169,7 +169,7 @@ public class Mesh(
         return new Mesh(radius, new MaterialInfo(specPower), shaderName, textures, box, vao);
     }
     
-    public Texture? GetTexture(int index)
+    public Texture2D? GetTexture(int index)
     {
         if (index < Textures.Count)
         {

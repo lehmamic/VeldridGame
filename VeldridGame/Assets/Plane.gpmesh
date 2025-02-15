@@ -3,7 +3,7 @@
 	"vertexformat":"PosNormTex",
 	"shader":"BasicMesh",
 	"textures":[
-		"Assets/Plane.png"
+		"Plane.png"
 	],
 	"specularPower":100.0,
 	"vertices":[

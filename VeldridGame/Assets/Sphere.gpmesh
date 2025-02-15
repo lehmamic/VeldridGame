@@ -3,8 +3,8 @@
 	"vertexformat":"PosNormTex",
 	"shader":"BasicMesh",
 	"textures":[
-		"Assets/Sphere.png",
-      "Assets/Default.png"
+	   "Sphere.png",
+       "Default.png"
 	],
 	"specularPower":100.0,
 	"vertices":[

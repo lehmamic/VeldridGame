@@ -10,7 +10,7 @@ public struct AssetRef<T> : IEquatable<AssetRef<T>> where T : EngineObject
     
     // private ushort _fileId = 0;
 
-    public T? Res
+    public T Res
     {
         get
         {
@@ -19,7 +19,7 @@ public struct AssetRef<T> : IEquatable<AssetRef<T>> where T : EngineObject
                 RetrieveInstance();
             }
 
-            return _instance;
+            return _instance!;
         }
         set
         {

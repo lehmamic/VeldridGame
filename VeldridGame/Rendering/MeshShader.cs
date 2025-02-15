@@ -4,7 +4,7 @@ using VeldridGame.Camera;
 
 namespace VeldridGame.Rendering;
 
-public class MeshShader : Shader
+public class MeshShader : ShaderBase
 {
     private readonly Pipeline _pipeline;
     private readonly ResourceLayout _projViewLayout;
@@ -17,9 +17,9 @@ public class MeshShader : Shader
     private readonly ResourceSet _lightInfoSet;
     private readonly ResourceSet _materialSet;
 
-    public MeshShader(GraphicsDevice graphicsDevice, string vertexShaderFilePath, string fragmentShaderFilePath)
+    public MeshShader(IGraphics graphics, string vertexShaderFilePath, string fragmentShaderFilePath)
     {
-        var factory = graphicsDevice.ResourceFactory;
+        var factory = graphics.Factory;
         
         ShaderSetDescription shaderSet = new ShaderSetDescription(
             new[]
@@ -32,7 +32,7 @@ public class MeshShader : Shader
             factory.CreateFromSpirv(
                 new ShaderDescription(ShaderStages.Vertex, File.ReadAllBytes(vertexShaderFilePath), "main"),
                 new ShaderDescription(ShaderStages.Fragment, File.ReadAllBytes(fragmentShaderFilePath), "main")),
-            ShaderHelper.GetSpecializations(graphicsDevice));
+            graphics.GetSpecializations(graphics.Device.SwapchainFramebuffer.OutputDescription));
         
         BufferMap[ShaderUniforms.ProjectionBuffer] = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         BufferMap[ShaderUniforms.ViewBuffer] = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
@@ -87,7 +87,7 @@ public class MeshShader : Shader
             PrimitiveTopology.TriangleList,
             shaderSet,
             [_projViewLayout, _worldTransformLayout, _lightInfoLayout, _materialLayout, _textureLayout],
-            graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
+            graphics.Device.MainSwapchain.Framebuffer.OutputDescription));
     }
     
     public override ResourceLayout TextureLayout => _textureLayout;

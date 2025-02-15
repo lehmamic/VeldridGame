@@ -3,7 +3,7 @@
 	"vertexformat":"PosNormSkinTex",
 	"shader":"Skinned",
 	"textures":[
-		"Assets/CatWarrior.png"
+		"CatWarrior.png"
 	],
 	"specularPower":100.0,
 	"vertices":[

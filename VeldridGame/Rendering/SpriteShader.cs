@@ -3,7 +3,7 @@ using Veldrid.SPIRV;
 
 namespace VeldridGame.Rendering;
 
-public class SpriteShader : Shader
+public class SpriteShader : ShaderBase
 {
     private readonly ResourceLayout _viewLayout;
     private readonly ResourceLayout _worldTransformLayout;
@@ -12,9 +12,9 @@ public class SpriteShader : Shader
     private readonly ResourceSet _worldTransformSet;
     private readonly Pipeline _pipeline;
 
-    public SpriteShader(GraphicsDevice graphicsDevice, string vertexShaderFilePath, string fragmentShaderFilePath)
+    public SpriteShader(IGraphics graphics, string vertexShaderFilePath, string fragmentShaderFilePath)
     {
-        var factory = graphicsDevice.ResourceFactory;
+        var factory = graphics.Factory;
         
         ShaderSetDescription shaderSet = new ShaderSetDescription(
             new[]
@@ -27,7 +27,7 @@ public class SpriteShader : Shader
             factory.CreateFromSpirv(
                 new ShaderDescription(ShaderStages.Vertex, File.ReadAllBytes(vertexShaderFilePath), "main"),
                 new ShaderDescription(ShaderStages.Fragment, File.ReadAllBytes(fragmentShaderFilePath), "main")),
-            ShaderHelper.GetSpecializations(graphicsDevice));
+            graphics.GetSpecializations(graphics.Device.SwapchainFramebuffer.OutputDescription));
 
         BufferMap[ShaderUniforms.ViewBuffer] = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
         _viewLayout = factory.CreateResourceLayout(
@@ -57,7 +57,7 @@ public class SpriteShader : Shader
             PrimitiveTopology.TriangleList,
             shaderSet,
             [_viewLayout, _worldTransformLayout, _textureLayout],
-            graphicsDevice.MainSwapchain.Framebuffer.OutputDescription));
+            graphics.Device.MainSwapchain.Framebuffer.OutputDescription));
     }
 
     public override ResourceLayout TextureLayout => _textureLayout;

@@ -1,76 +1,58 @@
 using Silk.NET.Maths;
 using Veldrid;
-using Veldrid.Sdl2;
-using Veldrid.StartupUtilities;
-using VeldridGame.Abstractions;
+using VeldridGame.Assets;
 using VeldridGame.Camera;
 using VeldridGame.Maths;
+using VeldridGame.Rendering.Shader;
 
 namespace VeldridGame.Rendering;
 
 public class Renderer : IDisposable
 {
     private readonly Game _game;
+    private readonly IScreen _screen;
+    private readonly IGraphics _graphics;
+    private readonly IAssetProvider _assetProvider;
 
     private readonly List<SpriteComponent> _sprites = new();
     private readonly List<MeshComponent> _meshComps = new();
     private readonly Dictionary<string, Mesh> _meshes = new();
-    
-    private readonly GraphicsDevice _graphicsDevice;
-    private readonly Sdl2Window _window;
 
-    private readonly Shader _spriteShader;
-    private readonly Shader _meshShader;
-    
+    private readonly ShaderBase _spriteShader;
+    private readonly ShaderBase _meshShader;
+
+    private readonly ShaderPipeline _meshShaderPipeline;
+    private readonly BindableResourceSet _meshPipelineResources;
+
     private VertexArrayObject _spriteVertices;
 
     private readonly CommandList _commandList;
-
-    // Map of textures loaded
-    private readonly Dictionary<string, Texture> _textures = new();
 
 
     // Lighting data
     public AmbientLightInfo AmbientLight { get; set; }
     public DirectionalLightInfo DirectionalLightInfo { get; set; }
 
-    public Renderer(Game game, int width, int height, string title)
+    public Renderer(Game game, IScreen screen, IGraphics graphics, IAssetProvider assetProvider)
     {
         _game = game;
-        var windowCi = new WindowCreateInfo
-        {
-            X = 100,
-            Y = 100,
-            WindowWidth = width,
-            WindowHeight = height,
-            WindowTitle = title
-        };
-        _window = VeldridStartup.CreateWindow(ref windowCi);
-        _window.Closed += OnWindowClosed;
+        _screen = screen;
+        _graphics = graphics;
+        _assetProvider = assetProvider;
         
-        var options = new GraphicsDeviceOptions(
-            debug: true,
-            swapchainDepthFormat: PixelFormat.R16_UNorm,
-            syncToVerticalBlank: true,
-            resourceBindingModel: ResourceBindingModel.Improved,
-            preferDepthRangeZeroToOne: true,
-            preferStandardClipSpaceYDirection: true);
-
-        _graphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, GraphicsBackend.OpenGL);
-        
-        var factory = _graphicsDevice.ResourceFactory;
+        var factory = _graphics.Factory;
         _commandList = factory.CreateCommandList();
         _commandList.Begin();
 
         // Make sure we can load and compile shaders
-        _spriteShader = new SpriteShader(_graphicsDevice, "Shaders/Sprite.vert", "Shaders/Sprite.frag");
+        _spriteShader = new SpriteShader(_graphics, "Shaders/Sprite.vert", "Shaders/Sprite.frag");
         _spriteShader.SetActive(_commandList);
         
         // Set the view-projection matrix
-        var spriteViewProj = GameMath.CreateSimpleViewProj(Window.Width, Window.Height);
+        var spriteViewProj = GameMath.CreateSimpleViewProj(_screen.Width, _screen.Height);
         _spriteShader.SetUniform(_commandList, ShaderUniforms.ViewBuffer, spriteViewProj);
         
-        _meshShader = new MeshShader(_graphicsDevice, "Shaders/Pong.vert", "Shaders/Pong.frag");
+        _meshShader = new MeshShader(_graphics, "Shaders/Pong.vert", "Shaders/Pong.frag");
         _meshShader.SetActive(_commandList);
 
         // Set the view-projection matrix
@@ -79,22 +61,62 @@ public class Renderer : IDisposable
 
         ProjectionMatrix = GameMath.CreatePerspectiveFieldOfView(
             Scalar.DegreesToRadians(70.0f),
-            (float) Window.Width, Window.Height,
+            _screen.Width, _screen.Height,
             25.0f,                  // Near plane
             10000.0f);
         _meshShader.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
         
         // Create quad for drawing sprites
         CreateSpriteVertices();
+
+        var shaderPipelineDescription = new ShaderPipelineDescription()
+        {
+            Shader = new ShaderVariant
+            {
+                VertexInputs =
+                [
+                    new VertexInput("Position", VertexElementFormat.Float3),
+                    new VertexInput("Normal", VertexElementFormat.Float3),
+                    new VertexInput("TexCoords", VertexElementFormat.Float3),
+                ],
+                Uniforms =
+                [
+                    new Uniform(ShaderUniforms.ProjectionBuffer, ResourceKind.UniformBuffer, 0, 64),
+                    new Uniform(ShaderUniforms.ViewBuffer, ResourceKind.UniformBuffer, 1, 64),
+                    new Uniform(ShaderUniforms.WorldBuffer, ResourceKind.UniformBuffer, 2, 64),
+                    new Uniform(ShaderUniforms.CameraBuffer, ResourceKind.UniformBuffer, 3, CameraInfo.SizeInBytes),
+                    new Uniform(ShaderUniforms.AmbientLightBuffer, ResourceKind.UniformBuffer, 4, AmbientLightInfo.SizeInBytes),
+                    new Uniform(ShaderUniforms.DirectionalLightBuffer, ResourceKind.UniformBuffer, 5, DirectionalLightInfo.SizeInBytes),
+                    new Uniform(ShaderUniforms.MaterialBuffer, ResourceKind.UniformBuffer, 6, 16),
+                    new Uniform("SurfaceTexture", ResourceKind.TextureReadOnly, 7),
+                    new Uniform("SurfaceSampler", ResourceKind.Sampler, 8),
+                ],
+                UniformStages =
+                [
+                    ShaderStages.Vertex,
+                    ShaderStages.Vertex,
+                    ShaderStages.Vertex,
+                    ShaderStages.Fragment,
+                    ShaderStages.Fragment,
+                    ShaderStages.Fragment,
+                    ShaderStages.Fragment,
+                    ShaderStages.Fragment,
+                    ShaderStages.Fragment,
+                ],
+                GlSlShaders =
+                [
+                    new ShaderDescription(ShaderStages.Vertex, File.ReadAllBytes("Shaders/PongNew.vert"), "main"),
+                    new ShaderDescription(ShaderStages.Fragment, File.ReadAllBytes("Shaders/PongNew.frag"), "main"),
+                ],
+            },
+        };
+        _meshShaderPipeline = new ShaderPipeline(_graphics, _assetProvider, shaderPipelineDescription);
+        _meshPipelineResources = _meshShaderPipeline.CreateResources();
         
         _commandList.End();
-        _graphicsDevice.SubmitCommands(_commandList);
-        _graphicsDevice.WaitForIdle();
+        _graphics.Device.SubmitCommands(_commandList);
+        _graphics.Device.WaitForIdle();
     }
-
-    public Sdl2Window Window => _window;
-    
-    public GraphicsDevice GraphicsDevice => _graphicsDevice;
     
     public Matrix4X4<float> ViewMatrix { get; set; }
 
@@ -109,7 +131,7 @@ public class Renderer : IDisposable
          */
 
         // Set the current frame buffer
-        _commandList.SetFramebuffer(_graphicsDevice.MainSwapchain.Framebuffer);
+        _commandList.SetFramebuffer(_graphics.ScreenTarget);
         
         // Clear color buffer/depth buffer
         _commandList.ClearColorTarget(0, RgbaFloat.Black);
@@ -153,20 +175,9 @@ public class Renderer : IDisposable
         
         _commandList.End();
 
-        _graphicsDevice.SubmitCommands(_commandList);
-        _graphicsDevice.SwapBuffers(_graphicsDevice.MainSwapchain);
-        _graphicsDevice.WaitForIdle();
-    }
-    
-    public Texture GetTexture(string fileName)
-    {
-        if (!_textures.ContainsKey(fileName))
-        {
-            var texture = new Texture(_graphicsDevice , fileName);
-            _textures.Add(fileName, texture);
-        }
-
-        return _textures[fileName];
+        _graphics.Device.SubmitCommands(_commandList);
+        _graphics.Device.SwapBuffers(_graphics.Device.MainSwapchain);
+        _graphics.Device.WaitForIdle();
     }
 
     public void AddSprite(SpriteComponent sprite)
@@ -229,13 +240,6 @@ public class Renderer : IDisposable
     public void Dispose()
     {
         _commandList.Dispose();
-        
-        // Destroy textures
-        foreach (var texture in _textures.ToArray())
-        {
-            _textures.Remove(texture.Key);
-            texture.Value.Dispose();
-        }
 
         // Destroy meshes
         foreach (var mesh in _meshes.ToArray())
@@ -245,7 +249,9 @@ public class Renderer : IDisposable
         }
 
         _meshShader.Dispose();
-        _graphicsDevice.Dispose();
+        _spriteShader.Dispose();
+        // _meshShaderPipeline.Dispose();
+        // _meshPipelineResources.Dispose();
     }
     
     private void CreateSpriteVertices()
@@ -263,10 +269,10 @@ public class Renderer : IDisposable
             2, 3, 0
         };
 
-        _spriteVertices = new VertexArrayObject(_graphicsDevice, vertices, indices);
+        _spriteVertices = new VertexArrayObject(_graphics.Device, vertices, indices);
     }
 
-    private void SetLightUniforms(Shader shader)
+    private void SetLightUniforms(ShaderBase shader)
     {
         // Camera position is from inverted view
         Matrix4X4.Invert(ViewMatrix, out var invView);
@@ -277,10 +283,5 @@ public class Renderer : IDisposable
     
         // Directional light
         shader.SetUniform(_commandList, ShaderUniforms.DirectionalLightBuffer, DirectionalLightInfo);
-    }
-    
-    private void OnWindowClosed()
-    {
-        _game.State = GameState.Quit;
     }
 }

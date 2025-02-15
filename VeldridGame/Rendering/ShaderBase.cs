@@ -2,7 +2,7 @@ using Veldrid;
 
 namespace VeldridGame.Rendering;
 
-public abstract class Shader : IDisposable
+public abstract class ShaderBase : IDisposable
 {
     protected readonly Dictionary<string, DeviceBuffer> BufferMap = new();
 

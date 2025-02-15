@@ -18,9 +18,9 @@ public class SpriteComponent : Component
 
     public bool Visible { get; set; } = true;
 
-    public Texture Texture { get; set; }
+    public Texture2D Texture { get; set; }
 
-    public virtual unsafe void Draw(CommandList commandList, Shader shader)
+    public virtual unsafe void Draw(CommandList commandList, ShaderBase shader)
     {
         // Scale the quad by the width/height of texture
         Matrix4X4<float> scaleMat = Matrix4X4.CreateScale(Texture.Width, Texture.Height, 1.0f);

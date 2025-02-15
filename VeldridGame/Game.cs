@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Silk.NET.Maths;
 using Veldrid;
 using VeldridGame.Abstractions;
+using VeldridGame.Assets;
 using VeldridGame.Camera;
 using VeldridGame.GameObjects;
 using VeldridGame.Input;
@@ -16,24 +17,38 @@ public class Game : IDisposable
     private const int FramesPerSecond = 60;
     private static readonly TimeSpan TargetElapsedTime = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / FramesPerSecond);
 
+    private readonly Screen _screen;
+    private readonly Graphics _graphics;
     private readonly Renderer _renderer;
     private readonly InputSystem _inputSystem = new();
 
     private readonly SceneManager _sceneManager;
+    private readonly AssetProvider _assetProvider;
 
     private CameraActor _cameraActor;
 
     public Game()
     {
-        _renderer = new Renderer(this, 1024, 768, "Veldrid Game");
+        _screen = new Screen("Veldrid Game", new Vector2D<int>(1024, 768), new Vector2D<int>(100, 100));
+        _graphics = new Graphics(_screen);
+        _assetProvider = new(this, "Assets");
+        _renderer = new Renderer(this, _screen, _graphics, _assetProvider);
         _sceneManager = new(this);
+        
+        _screen.Closed += (sender, args) => State = GameState.Quit;
     }
+    
+    public IScreen Screen => _screen;
     
     public Renderer Renderer => _renderer;
     
     public InputSystem InputSystem => _inputSystem;
 
     public ISceneManager SceneManager => _sceneManager;
+
+    public IGraphics Graphics => _graphics;
+    
+    public IAssetProvider AssetProvider => _assetProvider;
     
     public GameState State { get; set; } = GameState.GamePlay;
 
@@ -63,12 +78,14 @@ public class Game : IDisposable
     public void Dispose()
     {
         UnloadData();
+        _graphics.Dispose();
         _renderer.Dispose();
+        _assetProvider.Dispose();
     }
     
     private void ProcessInput()
     {
-        var input = Renderer.Window.PumpEvents();
+        var input = Screen.InternalWindow.PumpEvents();
         _inputSystem.Update(input);
 
         if (State == GameState.GamePlay)
@@ -84,10 +101,9 @@ public class Game : IDisposable
     
     private void UpdateGame(float deltaTime)
     {
-        // This belongs actually to the game loop, but we cant to it that way because silk.net makes the game loop as a black box...
         if (State == GameState.Quit)
         {
-            _renderer.Window.Close();
+            _screen.Close();
         }
 
         if (State == GameState.GamePlay)
@@ -192,7 +208,7 @@ public class Game : IDisposable
             
         _ = new SpriteComponent(actor)
         {
-            Texture = _renderer.GetTexture("Assets/HealthBar.png")
+            Texture = _assetProvider.LoadAsset<Texture2D>("HealthBar.png").Res,
         };
 
         actor = new Actor(scene);
@@ -201,7 +217,7 @@ public class Game : IDisposable
 
         _ = new SpriteComponent(actor)
         {
-            Texture = _renderer.GetTexture("Assets/Radar.png")
+            Texture = _assetProvider.LoadAsset<Texture2D>("Radar.png").Res,
         };
         
         _sceneManager.LoadScene(scene);
