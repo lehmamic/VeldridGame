@@ -8,10 +8,16 @@ public class BindableResourceSet(
     ResourceSetDescription description,
     DeviceBuffer[] buffers,
     byte[][] intermediate)
+    : IDisposable
 {
     private readonly byte[][] _intermediate = intermediate;
     
     private ResourceSet? _resources;
+    
+    ~BindableResourceSet()
+    {
+        Dispose(false);
+    }
 
     public ResourceSet BindResources(CommandList list)
     {
@@ -43,5 +49,24 @@ public class BindableResourceSet(
         commandList.UpdateBuffer(buffer, 0, data);
 
         return true;
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+    
+    private void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _resources?.Dispose();
+        }
+
+        foreach (IDisposable disposable in buffers)
+        {
+            disposable.Dispose();
+        }
     }
 }

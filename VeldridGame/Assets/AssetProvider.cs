@@ -51,10 +51,15 @@ public sealed class AssetProvider(Game game, string assetRootPath) : IAssetProvi
         {
             // case ShaderProgram => LoadShaderProgram(assetId);
             { } t when t == typeof(Texture2D) => LoadTexture(assetFile),
-            // case Mesh => LoadMesh(assetId);
+            { } t when t == typeof(Mesh) => LoadMesh(assetFile),
             // case Material => LoadMaterial(assetId);
             _ => throw new NotImplementedException($"Asset type {typeof(T)} not implemented."),
         };
+    }
+
+    private EngineObject LoadMesh(FileInfo assetFile)
+    {
+        return Mesh.Load(game, assetFile.FullName);
     }
 
     private EngineObject LoadTexture(FileInfo assetFile)

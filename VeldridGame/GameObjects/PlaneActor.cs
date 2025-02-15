@@ -11,6 +11,6 @@ public class PlaneActor : Actor
     {
         Transform.Scale = 10.0f;
         var mesh = new MeshComponent(this);
-        mesh.Mesh = Game.Renderer.GetMesh("Assets/Plane.gpmesh");
+        mesh.Mesh = Game.AssetProvider.LoadAsset<Mesh>("Plane.gpmesh").Res;
     }
 }

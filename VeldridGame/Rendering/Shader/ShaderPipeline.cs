@@ -4,17 +4,21 @@ using VeldridGame.Assets;
 
 namespace VeldridGame.Rendering.Shader;
 
-public sealed class ShaderPipeline : IBindableResourceProvider
+public sealed class ShaderPipeline : IBindableResourceProvider, IDisposable
 {
+    private const int PipelineCount = 20; // 20 possible combinations (5 topologies, 2 fill modes, 2 scissor modes)
+    
     private readonly IGraphics _graphics;
     private readonly IAssetProvider _assetProvider;
     private readonly ShaderVariant _shader;
     private readonly ShaderSetDescription _shaderSet;
     private readonly ResourceLayout _resourceLayout;
-    private readonly GraphicsPipelineDescription _description;
-    
+    private readonly Pipeline?[] _pipelines;
+
     private readonly Dictionary<string, uint> _bufferLookup = new();
     private readonly byte _bufferCount;
+
+    private GraphicsPipelineDescription _description;
 
     public ShaderPipeline(IGraphics graphics, IAssetProvider assetProvider, ShaderPipelineDescription description)
     {
@@ -53,6 +57,8 @@ public sealed class ShaderPipeline : IBindableResourceProvider
             FrontFace = _graphics.GetFrontFace(),
         };
         
+        _pipelines = new Pipeline[PipelineCount];
+        
         _description = new(
             BlendStateDescription.SingleOverrideBlend,
             DepthStencilStateDescription.DepthOnlyLessEqual,
@@ -63,8 +69,29 @@ public sealed class ShaderPipeline : IBindableResourceProvider
             output);
     }
     
-    public IReadOnlyList<Uniform> Uniforms => _shader.Uniforms;
+    ~ShaderPipeline()
+    {
+        Dispose(false);
+    }
     
+    public IReadOnlyList<Uniform> Uniforms => _shader.Uniforms;
+
+    public Pipeline GetPipeline(PolygonFillMode fill, PrimitiveTopology topology, bool scissor)
+    {
+        int index = (int)topology * 4 + (int)fill * 2 + (scissor ? 0 : 1);
+
+        if (_pipelines[index] == null)
+        {
+            _description.RasterizerState.ScissorTestEnabled = scissor;
+            _description.RasterizerState.FillMode = fill;
+            _description.PrimitiveTopology = topology;
+
+            _pipelines[index] = _graphics.Factory.CreateGraphicsPipeline(_description);
+        }
+
+        return _pipelines[index]!;
+    }
+
     public BindableResourceSet CreateResources()
     {
         BindableResource[] boundResources = new BindableResource[_shader.Uniforms.Length];
@@ -167,5 +194,29 @@ public sealed class ShaderPipeline : IBindableResourceProvider
         }
 
         return buffer;
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            for (int i = 0; i < _shaderSet.Shaders.Length; i++)
+            {
+                _shaderSet.Shaders[i]?.Dispose();
+            }
+
+            for (int i = 0; i < _pipelines.Length; i++)
+            {
+                _pipelines[i]?.Dispose();
+            }
+
+            _resourceLayout?.Dispose();
+        }
     }
 }

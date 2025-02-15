@@ -139,7 +139,7 @@ public class Game : IDisposable
         actor.Transform.Rotation = q;
         _ = new MeshComponent(actor)
         {
-            Mesh = _renderer.GetMesh("Assets/Cube.gpmesh")
+            Mesh = _assetProvider.LoadAsset<Mesh>("Cube.gpmesh").Res
         };
 
         actor = new Actor(scene);
@@ -148,7 +148,7 @@ public class Game : IDisposable
         
         _ = new MeshComponent(actor)
         {
-            Mesh = _renderer.GetMesh("Assets/Sphere.gpmesh")
+            Mesh = _assetProvider.LoadAsset<Mesh>("Sphere.gpmesh").Res,
         };
         
         // Setup floor
@@ -219,7 +219,7 @@ public class Game : IDisposable
         {
             Texture = _assetProvider.LoadAsset<Texture2D>("Radar.png").Res,
         };
-        
+
         _sceneManager.LoadScene(scene);
     }
     

@@ -16,7 +16,6 @@ public class Renderer : IDisposable
 
     private readonly List<SpriteComponent> _sprites = new();
     private readonly List<MeshComponent> _meshComps = new();
-    private readonly Dictionary<string, Mesh> _meshes = new();
 
     private readonly ShaderBase _spriteShader;
     private readonly ShaderBase _meshShader;
@@ -112,7 +111,15 @@ public class Renderer : IDisposable
         };
         _meshShaderPipeline = new ShaderPipeline(_graphics, _assetProvider, shaderPipelineDescription);
         _meshPipelineResources = _meshShaderPipeline.CreateResources();
-        
+
+        var pipeline = _meshShaderPipeline.GetPipeline(PolygonFillMode.Solid, PrimitiveTopology.TriangleList, false);
+        _commandList.SetPipeline(pipeline);
+
+        var resourceSet = _meshPipelineResources.BindResources(_commandList);
+        _commandList.SetGraphicsResourceSet(0, resourceSet);
+        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
+        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
+
         _commandList.End();
         _graphics.Device.SubmitCommands(_commandList);
         _graphics.Device.WaitForIdle();
@@ -155,6 +162,31 @@ public class Renderer : IDisposable
                 mesh.Draw(_commandList, _meshShader);
             }
         }
+        
+        /* BEGIN new version */
+        // Set the basic mesh shader active
+        var pipeline = _meshShaderPipeline.GetPipeline(PolygonFillMode.Solid, PrimitiveTopology.TriangleList, false);
+        _commandList.SetPipeline(pipeline);
+
+        var resourceSet = _meshPipelineResources.BindResources(_commandList);
+        _commandList.SetGraphicsResourceSet(0, resourceSet);
+
+        // Update view-projection matrix
+        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
+        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
+        
+        // Update lighting uniforms
+        SetLightUniforms(_meshPipelineResources);
+
+        // Draw all meshes
+        // foreach (var mesh in _meshComps)
+        // {
+        //     if (mesh.Visible)
+        //     {
+        //         mesh.Draw(_commandList, _meshShader);
+        //     }
+        // }
+        /* END new version */
         
         /*
          * Draw all sprite components
@@ -226,32 +258,14 @@ public class Renderer : IDisposable
         }
     }
 
-    public Mesh GetMesh(string fileName)
-    {
-        if (!_meshes.ContainsKey(fileName))
-        {
-            var mesh = Mesh.Load(fileName, _game);
-            _meshes.Add(fileName, mesh);
-        }
-
-        return _meshes[fileName];
-    }
-
     public void Dispose()
     {
         _commandList.Dispose();
 
-        // Destroy meshes
-        foreach (var mesh in _meshes.ToArray())
-        {
-            _meshes.Remove(mesh.Key);
-            mesh.Value.Dispose();
-        }
-
         _meshShader.Dispose();
         _spriteShader.Dispose();
-        // _meshShaderPipeline.Dispose();
-        // _meshPipelineResources.Dispose();
+        _meshShaderPipeline.Dispose();
+        _meshPipelineResources.Dispose();
     }
     
     private void CreateSpriteVertices()
@@ -283,5 +297,18 @@ public class Renderer : IDisposable
     
         // Directional light
         shader.SetUniform(_commandList, ShaderUniforms.DirectionalLightBuffer, DirectionalLightInfo);
+    }
+    
+    private void SetLightUniforms(BindableResourceSet resourceSet)
+    {
+        // Camera position is from inverted view
+        Matrix4X4.Invert(ViewMatrix, out var invertedView);
+        resourceSet.SetUniform(_commandList, ShaderUniforms.CameraBuffer, new CameraInfo(invertedView.GetTranslation()));
+
+        // Ambient light
+        resourceSet.SetUniform(_commandList, ShaderUniforms.AmbientLightBuffer, AmbientLight);
+    
+        // Directional light
+        resourceSet.SetUniform(_commandList, ShaderUniforms.DirectionalLightBuffer, DirectionalLightInfo);
     }
 }

@@ -1,18 +1,20 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Silk.NET.Maths;
+using VeldridGame.Abstractions;
 using VeldridGame.Maths.Geometry;
 
 namespace VeldridGame.Rendering;
 
 public class Mesh(
+    Game game,
     float radius,
     MaterialInfo materialInfo,
     string shaderName,
     IReadOnlyList<Texture2D> textures,
     AABB box,
     VertexArrayObject vertexArrayObject)
-    : IDisposable
+    : EngineObject(game)
 {
     public float Radius => radius;
 
@@ -26,7 +28,7 @@ public class Mesh(
 
     public VertexArrayObject VertexArrayObject => vertexArrayObject;
     
-    public static Mesh Load(string fileName, Game game)
+    public static Mesh Load(Game game, string fileName)
     {
         // Load Textures
         var jsonString = File.ReadAllText(fileName);
@@ -166,7 +168,7 @@ public class Mesh(
             throw new NotImplementedException($"The VAO layout {layout} has not been implemented yet.");
         }
 
-        return new Mesh(radius, new MaterialInfo(specPower), shaderName, textures, box, vao);
+        return new Mesh(game, radius, new MaterialInfo(specPower), shaderName, textures, box, vao);
     }
     
     public Texture2D? GetTexture(int index)
@@ -179,9 +181,14 @@ public class Mesh(
         return null;
     }
 
-    public void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        VertexArrayObject.Dispose();
+        if (disposing)
+        {
+            VertexArrayObject.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 
     private class RawMesh
