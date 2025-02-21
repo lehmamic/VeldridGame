@@ -59,6 +59,12 @@ public class VertexArrayObject : IDisposable
         commandList.SetVertexBuffer(0, VertexBuffer);
         commandList.SetIndexBuffer(IndexBuffer, IndexFormat.UInt16);
     }
+    
+    public void SetActive(CommandBuffer commandBuffer)
+    {
+        commandBuffer.SetVertexBuffer(VertexBuffer);
+        commandBuffer.SetIndexBuffer(IndexBuffer, IndexFormat.UInt16);
+    }
 
     public void Dispose()
     {

@@ -48,6 +48,28 @@ public class MeshComponent : Component
         commandList.DrawIndexed((uint) vao.NumberOfIndices, 1, 0, 0, 0);
     }
 
+    public virtual void Draw(CommandBuffer commandBuffer)
+    {
+        // Set the world transform
+        commandBuffer.SetUniform(ShaderUniforms.WorldBuffer, Actor.Transform.WorldTransform);
+
+        // Set specular power
+        commandBuffer.SetUniform(ShaderUniforms.MaterialBuffer, Mesh.MaterialInfo);
+        
+        // var texture = Mesh.GetTexture(TextureIndex);
+        // if (texture is not null)
+        // {
+        //     texture.SetActive(commandList, 4);
+        // }
+        
+        // Set mesh's vertex array as active
+        var vao = Mesh.VertexArrayObject;
+        vao.SetActive(commandBuffer);
+        
+        // Draw
+        commandBuffer.DrawIndexed((uint) vao.NumberOfIndices, 1, 0, 0, 0);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)

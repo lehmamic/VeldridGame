@@ -21,7 +21,7 @@ public class Renderer : IDisposable
     private readonly ShaderBase _meshShader;
 
     private readonly ShaderPipeline _meshShaderPipeline;
-    private readonly BindableResourceSet _meshPipelineResources;
+    private readonly CommandBuffer _meshCommandBuffer;
 
     private VertexArrayObject _spriteVertices;
 
@@ -76,7 +76,7 @@ public class Renderer : IDisposable
                 [
                     new VertexInput("Position", VertexElementFormat.Float3),
                     new VertexInput("Normal", VertexElementFormat.Float3),
-                    new VertexInput("TexCoords", VertexElementFormat.Float3),
+                    new VertexInput("TexCoords", VertexElementFormat.Float2),
                 ],
                 Uniforms =
                 [
@@ -109,19 +109,19 @@ public class Renderer : IDisposable
                 ],
             },
         };
-        _meshShaderPipeline = new ShaderPipeline(_graphics, _assetProvider, shaderPipelineDescription);
-        _meshPipelineResources = _meshShaderPipeline.CreateResources();
-
-        var pipeline = _meshShaderPipeline.GetPipeline(PolygonFillMode.Solid, PrimitiveTopology.TriangleList, false);
-        _commandList.SetPipeline(pipeline);
-
-        var resourceSet = _meshPipelineResources.BindResources(_commandList);
-        _commandList.SetGraphicsResourceSet(0, resourceSet);
-        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
-        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
-
         _commandList.End();
         _graphics.Device.SubmitCommands(_commandList);
+        
+        _meshShaderPipeline = new ShaderPipeline(_graphics, _assetProvider, shaderPipelineDescription);
+        _meshCommandBuffer = new CommandBuffer(_graphics, _meshShaderPipeline);
+
+        _meshCommandBuffer.BeginRecording();
+        _meshCommandBuffer.ActivatePipeline();
+        _meshCommandBuffer.BindResources();
+        _meshCommandBuffer.SetUniform(ShaderUniforms.ViewBuffer, ViewMatrix);
+        _meshCommandBuffer.SetUniform(ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
+        _meshCommandBuffer.SubmitCommands();
+        
         _graphics.Device.WaitForIdle();
     }
     
@@ -145,40 +145,16 @@ public class Renderer : IDisposable
         _commandList.ClearDepthStencil(1f);
 
         // Set the basic mesh shader active
-        _meshShader.SetActive(_commandList);
-
-        // Update view-projection matrix
-        _meshShader.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
-        _meshShader.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
-        
-        // Update lighting uniforms
-        SetLightUniforms(_meshShader);
-
-        // Draw all meshes
-        foreach (var mesh in _meshComps)
-        {
-            if (mesh.Visible)
-            {
-                mesh.Draw(_commandList, _meshShader);
-            }
-        }
-        
-        /* BEGIN new version */
-        // Set the basic mesh shader active
-        var pipeline = _meshShaderPipeline.GetPipeline(PolygonFillMode.Solid, PrimitiveTopology.TriangleList, false);
-        _commandList.SetPipeline(pipeline);
-
-        var resourceSet = _meshPipelineResources.BindResources(_commandList);
-        _commandList.SetGraphicsResourceSet(0, resourceSet);
-
-        // Update view-projection matrix
-        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
-        _meshPipelineResources.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
-        
-        // Update lighting uniforms
-        SetLightUniforms(_meshPipelineResources);
-
-        // Draw all meshes
+        // _meshShader.SetActive(_commandList);
+        //
+        // // Update view-projection matrix
+        // _meshShader.SetUniform(_commandList, ShaderUniforms.ViewBuffer, ViewMatrix);
+        // _meshShader.SetUniform(_commandList, ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
+        //
+        // // Update lighting uniforms
+        // SetLightUniforms(_meshShader);
+        //
+        // // Draw all meshes
         // foreach (var mesh in _meshComps)
         // {
         //     if (mesh.Visible)
@@ -186,12 +162,39 @@ public class Renderer : IDisposable
         //         mesh.Draw(_commandList, _meshShader);
         //     }
         // }
+        _commandList.End();
+        _graphics.Device.SubmitCommands(_commandList);
+        
+        /* BEGIN new version */
+        // Set the basic mesh shader active
+        _meshCommandBuffer.BeginRecording();
+        _meshCommandBuffer.SetRenderTarget(_graphics.ScreenTarget);
+        _meshCommandBuffer.ActivatePipeline();
+        _meshCommandBuffer.BindResources();
+
+        // Update view-projection matrix
+        _meshCommandBuffer.SetUniform(ShaderUniforms.ViewBuffer, ViewMatrix);
+        _meshCommandBuffer.SetUniform(ShaderUniforms.ProjectionBuffer, ProjectionMatrix);
+        
+        // Update lighting uniforms
+        SetLightUniforms(_meshCommandBuffer);
+
+        // Draw all meshes
+        foreach (var mesh in _meshComps)
+        {
+            if (mesh.Visible)
+            {
+                mesh.Draw(_meshCommandBuffer);
+            }
+        }
         /* END new version */
+        _meshCommandBuffer.SubmitCommands();
         
         /*
          * Draw all sprite components
          */
-
+        _commandList.Begin();
+        _commandList.SetFramebuffer(_graphics.ScreenTarget);
         // Set sprite shader and vertex array objects active
         _spriteShader.SetActive(_commandList);
         _spriteVertices.SetActive(_commandList);
@@ -265,7 +268,7 @@ public class Renderer : IDisposable
         _meshShader.Dispose();
         _spriteShader.Dispose();
         _meshShaderPipeline.Dispose();
-        _meshPipelineResources.Dispose();
+        _meshCommandBuffer.Dispose();
     }
     
     private void CreateSpriteVertices()
@@ -299,16 +302,16 @@ public class Renderer : IDisposable
         shader.SetUniform(_commandList, ShaderUniforms.DirectionalLightBuffer, DirectionalLightInfo);
     }
     
-    private void SetLightUniforms(BindableResourceSet resourceSet)
+    private void SetLightUniforms(CommandBuffer commands)
     {
         // Camera position is from inverted view
         Matrix4X4.Invert(ViewMatrix, out var invertedView);
-        resourceSet.SetUniform(_commandList, ShaderUniforms.CameraBuffer, new CameraInfo(invertedView.GetTranslation()));
+        commands.SetUniform(ShaderUniforms.CameraBuffer, new CameraInfo(invertedView.GetTranslation()));
 
         // Ambient light
-        resourceSet.SetUniform(_commandList, ShaderUniforms.AmbientLightBuffer, AmbientLight);
+        commands.SetUniform(ShaderUniforms.AmbientLightBuffer, AmbientLight);
     
         // Directional light
-        resourceSet.SetUniform(_commandList, ShaderUniforms.DirectionalLightBuffer, DirectionalLightInfo);
+        commands.SetUniform(ShaderUniforms.DirectionalLightBuffer, DirectionalLightInfo);
     }
 }

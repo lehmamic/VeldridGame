@@ -12,7 +12,7 @@ layout(set = 0, binding = 1) uniform ViewBuffer
     mat4 View;
 };
 
-layout(set = 1, binding = 0) uniform WorldBuffer
+layout(set = 0, binding = 2) uniform WorldBuffer
 {
     mat4 World;
 };

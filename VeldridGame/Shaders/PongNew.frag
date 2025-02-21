@@ -64,33 +64,33 @@ layout(location = 2) in vec3 fragWorldPos;
 
 // Uniforms for lighting
 // Camera position (in world space)
-layout(set = 2, binding = 0) uniform CameraBuffer
+layout(set = 0, binding = 3) uniform CameraBuffer
 {
     CameraInfo Camera;
 };
 
 // Ambient light level
-layout(set = 2, binding = 1) uniform AmbientLightBuffer
+layout(set = 0, binding = 4) uniform AmbientLightBuffer
 {
     AmbientLightInfo AmbientLight;
 };
 
 // Directional Light (only one for now)
-layout(set = 2, binding = 2) uniform DirectionalLightBuffer
+layout(set = 0, binding = 5) uniform DirectionalLightBuffer
 {
     DirectionalLightInfo DirLight;
 };
 
 // Uniforms for material
 // Specular power for this surface
-layout(set = 3, binding = 0) uniform MaterialBuffer
+layout(set = 0, binding = 6) uniform MaterialBuffer
 {
     MaterialInfo Material;
 };
 
 // For texture sampling
-layout(set = 4, binding = 0) uniform texture2D SurfaceTexture;
-layout(set = 4, binding = 1) uniform sampler SurfaceSampler;
+layout(set = 0, binding = 7) uniform texture2D SurfaceTexture;
+layout(set = 0, binding = 8) uniform sampler SurfaceSampler;
 
 // This corresponds to the output color to the color buffer
 layout(location = 0) out vec4 outColor;

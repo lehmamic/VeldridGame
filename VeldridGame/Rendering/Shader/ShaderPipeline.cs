@@ -131,6 +131,14 @@ public sealed class ShaderPipeline : IBindableResourceProvider, IDisposable
 
         return false;
     }
+    
+    // public void BindVertexBuffer(CommandList list, string semantic, DeviceBuffer buffer, uint offset = 0)
+    // {
+    //     if (_semanticLookup.TryGetValue(semantic.ToUpperInvariant(), out uint location))
+    //     {
+    //         list.SetVertexBuffer(location, buffer, offset);
+    //     }
+    // }
 
     private static uint Pack(ushort a, ushort b)
         => ((uint)a << 16) | b;
@@ -145,16 +153,16 @@ public sealed class ShaderPipeline : IBindableResourceProvider, IDisposable
         Veldrid.Shader[] shaders = _graphics.Factory.CreateFromSpirv(
             shaderDescriptions.Single(s => s.Stage == ShaderStages.Vertex),
             shaderDescriptions.Single(s => s.Stage == ShaderStages.Fragment));
-        
-        var vertexLayouts = new VertexLayoutDescription[_shader.VertexInputs.Length];
-        for (int inputIndex = 0; inputIndex < vertexLayouts.Length; inputIndex++)
+
+        var vertexElements = new VertexElementDescription[_shader.VertexInputs.Length];
+        for (int inputIndex = 0; inputIndex < vertexElements.Length; inputIndex++)
         {
             VertexInput input = _shader.VertexInputs[inputIndex];
 
-            vertexLayouts[inputIndex] = new VertexLayoutDescription(
-                new VertexElementDescription(input.Semantic, VertexElementSemantic.TextureCoordinate, input.Format));
+            vertexElements[inputIndex] = new VertexElementDescription(input.Semantic, VertexElementSemantic.TextureCoordinate, input.Format);
         }
-        
+
+        VertexLayoutDescription[] vertexLayouts = [new(vertexElements)];
         return new ShaderSetDescription(vertexLayouts, shaders, _graphics.GetSpecializations(output));
     }
     
